@@ -1,5 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Nextplace</string>
-    <color name="ic_launcher_background">#FFFFFF</color>
+    <string name="login_title">Welcome to Nextplace</string>
+    <string name="login_subtitle">Something to do. Somewhere to go.</string>
+    <string name="email_label">Email</string>
+    <string name="login_button">Continue</string>
+    <string name="nav_discover">Discover</string>
+    <string name="nav_events">Events</string>
+    <string name="nav_find_vibe">Find my vibe</string>
+    <string name="nav_profile">Profile</string>
 </resources>

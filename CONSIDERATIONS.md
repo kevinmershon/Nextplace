@@ -135,13 +135,21 @@ Recommended profile surface:
 - Name or alias
 - Photo (optional but encouraged)
 - Very limited editable fields
+- **(Post-MVP)** Subtle activity rank badge displayed in corner
+- **Icebreaker prompts** - Categorical "Ask me about..." fields visible only to event participants
+  - Examples: "Ask me about: Coffee roasting, Bay Area hiking, indie games"
+  - 3-5 short prompts maximum
+  - Designed for conversation starting, not matching/filtering
+  - Only visible to people in same event, not public
 
 No:
 - Bio paragraphs
-- Interest lists
+- Traditional interest lists for matching/filtering
 - Social links
+- Public leaderboards or comparisons
+- Prominent gamification elements
 
-Profiles exist to reassure, not to sell.
+Profiles exist to reassure and facilitate conversation, not to sell or compete.
 
 ---
 
@@ -192,21 +200,33 @@ Blacklisting operates at the event visibility and eligibility layer, not at the 
 
 ---
 
-## Location Browse as Event Creation
+## Find My Vibe: Location + Weather Browse
 
 ### No Browse Events Page
-Instead of browsing events, users browse locations.
+Instead of browsing events, users browse locations with weather context.
+
+### "Find My Vibe" Page Concept
+- Combines locations with current/forecasted weather conditions
+- Filter by weather type: sunny, foggy, cool breeze, golden hour, etc.
+- Filter by location type: parks, beaches, neighborhoods, hiking trails, etc.
+- Each location card shows:
+  - Location name and distance
+  - Current/forecasted weather at that location
+  - Suggested activities based on conditions
+  - "Check it out" button
 
 ### "Check It Out" Pattern
-- User browses locations page
+- User browses locations with weather filters
 - Clicks "Check it out" on a location
 - System creates new event hosted by that user
 - Event becomes visible to other eligible users (subject to blacklist filtering)
 
 ### Benefits
-- Maintains place-first philosophy
+- Merges Flow 1 (place discovery) and Flow 2 (weather-driven) into browsable format
+- Maintains place-first philosophy with weather context
 - Reduces abandoned or low-commitment events
 - Creator implicitly commits by hosting
+- Makes weather-driven discovery more accessible
 
 ---
 
@@ -249,12 +269,19 @@ This optionality is a strategic safety valve.
 
 ## Design Tone
 
+### Visual & Communication Style
 - Calm, confident, minimal
-- No gamification language
-- No urgency theatrics
-- Trust through restraint
+- No urgency theatrics or dark patterns
+- Trust through restraint and clarity
 
-The product should feel like a quiet nudge, not a hype engine.
+### Gamification Approach (Post-MVP)
+When activity tracking is introduced:
+- **Subtle, not central** - Badge in profile corner, not hero element
+- **Background tracking** - Points/ranks exist but don't dominate UI
+- **Privacy-first** - No leaderboards, no comparisons, no public scores
+- **Existing terminology unchanged** - Keep "events" and "suggestions", not "quests"
+
+The product should feel like a quiet nudge toward exploration, not a game to optimize.
 
 ---
 

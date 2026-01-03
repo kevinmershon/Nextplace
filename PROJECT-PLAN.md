@@ -187,6 +187,36 @@ These attributes enable:
 
 ## Post-MVP Features
 
+### Activity Tracking & Ranking
+Background system to encourage consistent participation:
+
+**Points System:**
+- Points awarded for attending events you committed to
+- Double points awarded for creating AND attending an event (rewards initiative and follow-through)
+- Points awarded for rating experiences and leaving feedback
+- Points NOT awarded for event creation alone (prevents spam), profile activity, or social metrics
+- Backend tracks points with 10% weekly decay during inactivity (7+ days without attendance)
+
+**Personal Ranking:**
+- Subtle rank badge in profile: Newcomer → Regular → Well-Known → Celebrity → Icon
+- Badges show peak achievement (cannot be lost once earned)
+- Badge displayed next to name in event participant lists
+- Tap/hover badge to see detailed ranking and current points
+- Rank visible only to event participants, not publicly browsable
+- No leaderboards, no cross-user comparisons, no public rankings
+
+**Implementation:**
+- Backend calculates decay daily
+- GraphQL API returns current points and rank
+- Native apps display badge subtly in profile
+- Optional: gentle notification if decay approaching
+
+**Design Principles:**
+- Gamification stays in background, not primary framing
+- Existing terminology unchanged (events, suggestions, locations)
+- Motivation through personal progression, not competition
+- Privacy-first: scores remain private
+
 ### Friend System
 Unlocked after positive social interactions:
 

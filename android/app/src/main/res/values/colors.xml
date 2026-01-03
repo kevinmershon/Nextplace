@@ -1,0 +1,26 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Brand Colors (matching web landing page) -->
+    <color name="primary">#FF6B35</color>
+    <color name="secondary">#FFA726</color>
+    <color name="accent">#FFD23F</color>
+
+    <!-- Text Colors -->
+    <color name="text_primary">#212121</color>
+    <color name="text_secondary">#757575</color>
+
+    <!-- Background Colors -->
+    <color name="background">#FFFFFF</color>
+    <color name="surface">#FFFFFF</color>
+
+    <!-- Error Colors -->
+    <color name="error">#C62828</color>
+    <color name="error_background">#FFEBEE</color>
+
+    <!-- Success Colors -->
+    <color name="success">#2E7D32</color>
+    <color name="success_background">#E8F5E9</color>
+
+    <!-- Icon Launcher -->
+    <color name="ic_launcher_background">#FFFFFF</color>
+</resources>
