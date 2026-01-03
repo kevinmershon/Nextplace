@@ -1,75 +1,45 @@
 # Nextplace
 
-Spontaneous event and place discovery for people with abundant free time but limited social momentum.
+**Something to do. Somewhere to go.**
 
-## Project Structure
+For people with abundant free time but limited social momentum.
 
-```
-Nextplace/
-├── web/          # Clojure backend + Preact frontend (MVP)
-├── android/      # Android app (post-MVP)
-├── ios/          # iOS app (post-MVP)
-└── shared/       # Cross-platform utilities
-```
+## The Problem
 
-## Web Development
+Free time is abundant. Energy to plan and coordinate is not. You want to get out and experience things, but the friction of deciding where to go, what to do, and who to do it with creates inertia.
 
-### Quick Start
+## The Solution
 
-```bash
-# Start REPL with dev environment
-cd web
-clojure -M:dev
+Nextplace removes the friction. We give you spontaneous, personalized suggestions for places and activities when you're ready to go. No planning paralysis. No endless scrolling. Just open the app and move.
 
-# In REPL:
-(go)    # Start server
-(halt)  # Stop server
-(reset) # Reload and restart
-```
+## How It Works
 
-### Makefile Commands
+### 1. Spontaneous Discovery
+Get personalized suggestions for places and activities based on your location, preferences, and the moment. When you're ready to go, we tell you where and what.
 
-From project root:
+### 2. Weather Escapes
+Need a change of scenery? We find better weather within driving distance. Escape the fog for sunshine, or the heat for coastal breeze.
 
-```bash
-make clj/server   # Start production server
-make clj/mcp      # Start MCP server (dev)
-make clj/format   # Format code
-make clj/build    # Compile code
-make clj/clean    # Clean build artifacts
-```
+### 3. Small-Group Encounters (Unlocked Feature)
+Low-pressure social meetups anchored to activities. Small groups (2-4 people), commitment accountability, and activity-focused interaction for people who want optional social discovery.
 
-### MCP Server Setup
+## Getting Started
 
-Add Clojure MCP to this project:
+Visit [http://localhost:8888](http://localhost:8888) to join the waitlist.
 
-```bash
-claude mcp add clojure "/bin/bash" -- -c "exec clojure -X:mcp"
-```
+---
 
-### Endpoints
+## For Developers
 
-- `http://localhost:8888/` - Frontend
-- `http://localhost:8888/graphql` - GraphQL API
-- `http://localhost:8888/playground.html` - GraphQL Playground
+See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details, development setup, and contribution guidelines.
 
-## Core Flows
+**Tech Stack:**
+- Backend: Clojure with Lacinia GraphQL, Reitit, RocksDB
+- Frontend: Preact with HTM and Signals (standalone from CDN)
+- See [PROJECT-PLAN.md](PROJECT-PLAN.md) and [CONSIDERATIONS.md](CONSIDERATIONS.md) for detailed product specification
 
-1. **Place + Activity Discovery** - Move me somewhere with something to do
-2. **Weather-Driven Escapes** - Change how it feels by traveling to different weather
-3. **Small-Group Social Encounters** - Optional low-pressure social interaction anchored to activities
+---
 
-## Tech Stack
+## Project History
 
-**Backend:**
-- Clojure with deps.edn
-- Lacinia GraphQL
-- Pedestal HTTP server
-- Integrant component management
-- RocksDB + Redis for storage
-
-**Frontend:**
-- Preact with HTM and Signals (standalone)
-- Served from CDN
-
-See [PROJECT-PLAN.md](PROJECT-PLAN.md) and [CONSIDERATIONS.md](CONSIDERATIONS.md) for detailed product specification.
+Nextplace is a continuation of the idea originally started with [temperatr](https://github.com/kevinmershon/temperatr). It aims to be an automated community-and-friend discovery service akin to [Timeleft](https://www.timeleft.com/) and [Urban Diversion](https://urbandiversion.com/), with a focus on spontaneous, low-friction experiences.

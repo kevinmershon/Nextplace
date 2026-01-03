@@ -98,10 +98,18 @@
   {:description "Minimal user profile"
    :fields      {:id                          {:type (non-null ID)}
                  :name                        {:type (non-null String)}
+                 :email                       {:type String}
                  :photo_url                   {:type String}
                  :flow3_unlocked              {:type        (non-null Boolean)
                                                :description "Whether user has access to social events"}
-                 :completed_experiences_count {:type (non-null Int)}}}}
+                 :completed_experiences_count {:type (non-null Int)}}}
+
+  :SignupResult
+  {:description "Result of user signup"
+   :fields      {:id         {:type (non-null ID)}
+                 :email      {:type (non-null String)}
+                 :signedUpAt {:type        (non-null String)
+                              :description "ISO 8601 datetime"}}}}
 
  :queries
  {:current_suggestion
@@ -134,24 +142,24 @@
    :resolve     :query/experience-history}}
 
  :mutations
- {:accept_suggestion
+ {:suggestion_accept
   {:type        :Suggestion
    :description "Accept a suggestion and commit to it"
    :args        {:suggestion_id {:type (non-null ID)}}
-   :resolve     :mutation/accept-suggestion}
+   :resolve     :mutation/suggestion-accept}
 
-  :regenerate_suggestion
+  :suggestion_regenerate
   {:type        :Suggestion
    :description "Skip current suggestion and get a new one"
-   :resolve     :mutation/regenerate-suggestion}
+   :resolve     :mutation/suggestion-regenerate}
 
-  :join_social_event
+  :social_event_join
   {:type        :SocialEvent
    :description "Flow 3: Join a social event"
    :args        {:event_id {:type (non-null ID)}}
-   :resolve     :mutation/join-social-event}
+   :resolve     :mutation/social-event-join}
 
-  :complete_experience
+  :experience_complete
   {:type        :Experience
    :description "Mark experience as complete and submit reflection"
    :args        {:suggestion_id       {:type ID}
@@ -159,7 +167,13 @@
                  :overall_rating      {:type (non-null Int)}
                  :reflection          {:type String}
                  :participant_ratings {:type (list :ParticipantRatingInput)}}
-   :resolve     :mutation/complete-experience}}
+   :resolve     :mutation/experience-complete}
+
+  :user_signup
+  {:type        :SignupResult
+   :description "Sign up a new user with email"
+   :args        {:email {:type (non-null String)}}
+   :resolve     :mutation/user-signup}}
 
  :input-objects
  {:ParticipantRatingInput

@@ -1,152 +1,219 @@
 # Nextplace Architecture
 
+Technical documentation for developers working on Nextplace.
+
 ## Project Structure
 
 ```
 Nextplace/
-├── web/              # Clojure backend + Preact frontend (MVP)
-├── android/          # Android application (post-MVP)
-├── ios/              # iOS application (post-MVP)
-├── shared/           # Cross-platform utilities and shared logic
-└── Makefile          # Build automation
+├── web/          # Clojure backend + Preact frontend (MVP)
+│   ├── src/
+│   │   ├── main/          # Production code
+│   │   │   └── nextplace/
+│   │   │       ├── server.clj      # Ring/Reitit HTTP server
+│   │   │       ├── schema.clj      # GraphQL schema loader
+│   │   │       ├── resolvers.clj   # GraphQL resolvers
+│   │   │       └── db.clj          # RocksDB storage layer
+│   │   ├── dev/           # Development-only code
+│   │   │   └── user.clj   # REPL initialization
+│   │   └── mcp/           # MCP server code
+│   │       └── mcp.clj    # Claude MCP integration
+│   ├── resources/
+│   │   ├── schema.edn     # GraphQL schema definition
+│   │   ├── config.edn     # Integrant configuration
+│   │   └── public/        # Static frontend files
+│   │       ├── index.html
+│   │       ├── css/main.css
+│   │       └── js/app.js
+│   └── deps.edn           # Clojure dependencies
+├── android/      # Android app (post-MVP)
+├── ios/          # iOS app (post-MVP)
+└── shared/       # Cross-platform utilities
 ```
 
-## Web Application Architecture
+## Build Targets
 
-### Directory Organization
+The project uses Clojure deps.edn with multiple build targets for code isolation:
 
-```
-web/
-├── src/
-│   ├── main/         # Production code (always on classpath)
-│   ├── dev/          # REPL utilities and development helpers (:dev alias)
-│   └── mcp/          # MCP server integration (:mcp alias)
-├── resources/
-│   ├── public/       # Static frontend assets (HTML, CSS, JS)
-│   ├── schema.edn    # GraphQL schema definition
-│   └── config.edn    # Integrant component configuration
-├── test/             # Test suites (:test alias)
-├── deps.edn          # Clojure dependencies and build aliases
-└── cljfmt.edn        # Code formatting configuration
-```
+### `:main` (Production)
+- Paths: `["src/main" "resources"]`
+- Contains server, schema, resolvers, and database code
+- Used by production server and build processes
 
-### Build Target Separation
+### `:dev` (Development REPL)
+- Additional paths: `["src/dev"]`
+- Includes Integrant REPL tools
+- Provides (go), (halt), (reset) commands
 
-**Production** (`src/main/`)
-- Core application logic
-- GraphQL resolvers and schema loader
-- HTTP server with Pedestal
-- Always included on classpath
+### `:mcp` (MCP Server)
+- Additional paths: `["src/mcp"]`
+- Isolated MCP server code for IDE integration
+- Uses nREPL connection
 
-**Development** (`src/dev/`)
-- REPL initialization (user.clj)
-- Integrant workflow helpers (go, halt, reset)
-- Development utilities
-- Only loaded with `:dev` alias
+### `:fmt` (Code Formatting)
+- Uses custom cljfmt fork with alignment settings
+- Formats .clj, .cljc, and .edn files
 
-**MCP Server** (`src/mcp/`)
-- nREPL connection management
-- MCP protocol integration
-- Only loaded with `:mcp` alias
-- Isolated from production builds
+## Technology Stack
 
-### Technology Stack
+### Backend
+- **Language:** Clojure 1.12.0
+- **HTTP Server:** Ring + Reitit
+- **GraphQL:** Lacinia with EDN schema
+- **Component Management:** Integrant
+- **Storage:** RocksDB (embedded), Redis (caching via Carmine)
+- **Logging:** SLF4J + Logback
 
-**Backend:**
-- Clojure 1.12.0
-- Lacinia GraphQL (schema + resolvers)
-- Pedestal HTTP server (with static file serving)
-- Integrant (component lifecycle)
-- core.async (asynchronous workflows)
-- Claypoole (parallel processing)
-- Muuntaja (content negotiation)
+### Frontend
+- **Framework:** Preact with HTM and Signals (standalone from CDN)
+- **Styling:** Custom CSS with Material Design principles
+- **Icons:** Material Icons
+- **Fonts:** Roboto
 
-**Storage:**
-- RocksDB (embedded key-value store)
-- Redis via Carmine (caching, sessions)
+### Development Tools
+- **Code Formatting:** cljfmt with custom alignment rules
+- **REPL:** Integrant REPL for component lifecycle
+- **IDE Integration:** Claude MCP server via nREPL
 
-**Frontend:**
-- Preact with HTM and Signals (standalone, CDN-loaded)
-- Served from `resources/public/`
+## Component Lifecycle
 
-**Development:**
-- Integrant REPL workflow
-- cljfmt for code formatting
-- MCP server for IDE integration
+Components are managed by Integrant with dependencies declared in `config.edn`:
 
-### Component Management
+1. `:nextplace/db` - RocksDB database connection
+2. `:nextplace/schema` - GraphQL schema (depends on db)
+3. `:nextplace/server` - HTTP server (depends on schema)
 
-Components defined in `resources/config.edn` using Integrant:
+Components start in order and halt in reverse order.
 
+Example configuration:
 ```clojure
-{:nextplace/schema  {}
- :nextplace/server  {:schema #ig/ref :nextplace/schema
-                     :port   8888
-                     :env    :dev}}
+{:nextplace/db     {:path "data/nextplace.db"}
+ :nextplace/schema {:db #ig/ref :nextplace/db}
+ :nextplace/server {:schema #ig/ref :nextplace/schema
+                    :port   8888
+                    :env    :dev}}
 ```
 
-Lifecycle methods:
-- `ig/init-key` - Component initialization
-- `ig/halt-key!` - Component shutdown
+## Development Workflow
 
-### API Endpoints
+### Quick Start
 
-- `/` - Frontend application
-- `/graphql` - GraphQL API endpoint
-- `/playground.html` - GraphQL Playground IDE
+```bash
+# Start REPL with dev environment
+cd web
+clojure -M:dev
 
-### Development Workflow
+# In REPL:
+(go)    # Start server and initialize components
+(halt)  # Stop server and cleanup components
+(reset) # Reload code and restart
+```
 
-1. Start REPL: `clojure -M:dev`
-2. Load user namespace (automatic)
-3. Start system: `(go)`
-4. Develop with hot reload: `(reset)`
-5. Stop system: `(halt)`
-
-### Code Organization Principles
-
-**Namespace Structure:**
-- `nextplace.server` - HTTP server and lifecycle
-- `nextplace.schema` - GraphQL schema compilation
-- `nextplace.resolvers` - GraphQL query/mutation resolvers
-- `user` - REPL initialization and helpers
-- `mcp` - MCP server connection
-
-**Dependency Flow:**
-- Configuration → Schema → Server
-- Integrant manages initialization order
-- Components reference dependencies via `#ig/ref`
-
-### Build Commands
+### Makefile Commands
 
 From project root:
 
 ```bash
-make clj/server   # Production server (uses :main alias)
-make clj/mcp      # MCP server (uses :mcp alias)
-make clj/format   # Format all Clojure and EDN files
-make clj/build    # AOT compilation
-make clj/clean    # Remove build artifacts
+make clj/server   # Start production server (port 8888)
+make clj/mcp      # Start MCP server for IDE integration
+make clj/format   # Format all Clojure code and EDN files
+make clj/build    # Compile code
+make clj/clean    # Clean build artifacts
 ```
 
-### Configuration Management
+### MCP Server Setup
 
-**Environment-specific:**
-- Development: `resources/config.edn` with `:env :dev`
-- Production: Programmatic config in `-main` with `:env :prod`
+Add Clojure MCP to this project for IDE integration:
 
-**Formatting:**
-- `cljfmt.edn` controls code style
-- Alignment enabled for bindings, forms, and maps
+```bash
+claude mcp add clojure "/bin/bash" -- -c "exec clojure -X:mcp"
+```
 
-### Future Extensions
+## API Endpoints
 
-**Android/iOS Apps:**
-- Shared GraphQL endpoint
-- Platform-specific native implementations
-- Common business logic in `shared/`
+- `http://localhost:8888/` - Landing page
+- `http://localhost:8888/graphql` - GraphQL API
+- `http://localhost:8888/playground.html` - GraphQL Playground
 
-**Shared Module:**
-- GraphQL queries and mutations
-- Data transformation utilities
-- Common validation logic
+## GraphQL Schema
+
+### Naming Convention
+All mutations and queries use `nounVerb` naming:
+- `user_signup` (not `signupUser`)
+- `suggestion_accept` (not `acceptSuggestion`)
+- `experience_complete` (not `completeExperience`)
+
+### Schema Structure
+Schema is defined in EDN format at `resources/schema.edn` with:
+- `:enums` - Weather conditions, commitment status
+- `:objects` - Location, Activity, Suggestion, User, etc.
+- `:queries` - Data retrieval operations
+- `:mutations` - Data modification operations
+- `:input-objects` - Input types for mutations
+
+### Resolvers
+GraphQL resolvers use multimethod pattern in `resolvers.clj`:
+- `resolve-query` - Query resolvers
+- `resolve-mutation` - Mutation resolvers (with DB access)
+- `resolver-map` - Maps GraphQL field names to resolver functions
+
+## Database Layer
+
+### RocksDB Storage
+- Embedded key-value store at `data/nextplace.db`
+- Email-keyed user profiles: `user:<email>`
+- EDN serialization for values
+- Integrant lifecycle management
+
+### Operations
+- `db/get-value` - Retrieve value by key
+- `db/put-value` - Store value by key
+- `db/delete-value` - Remove value by key
+
+## Code Style
+
+### Naming Conventions
+- **Clojure symbols/variables:** kebab-case (`user-id`, `signed-up-at`)
+- **Filenames:** snake_case (`resolvers.clj`, `schema.clj`)
+- **GraphQL fields:** snake_case with nounVerb (`user_signup`, `suggestion_accept`)
+
+### Formatting Rules
+Configured in `web/cljfmt.edn`:
+```clojure
+{:align-binding-columns?          true
+ :align-form-columns?             true
+ :align-map-columns?              true
+ :blank-lines-separate-alignment? true
+ :indent-line-comments?           true}
+```
+
+## Production Deployment
+
+The `-main` function in `server.clj` provides standalone server startup:
+```bash
+cd web
+clojure -M:main
+```
+
+Server runs on port 8888 by default. Database and schema initialize automatically.
+
+## Testing Strategy
+
+(To be implemented)
+- Unit tests for resolvers and business logic
+- Integration tests for GraphQL API
+- End-to-end tests for user flows
+
+## Performance Considerations
+
+- RocksDB provides fast embedded storage
+- Redis (via Carmine) for caching layer
+- Ring middleware for content-type handling
+- Reitit for efficient routing
+
+## Security
+
+- Input validation on all GraphQL mutations
+- Email format validation for user signup
+- No authentication/authorization in MVP (waitlist only)
+- Database path configurable for environment isolation

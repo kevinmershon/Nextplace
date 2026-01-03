@@ -7,12 +7,12 @@
             [nextplace.resolvers :as resolvers]))
 
 (defn load-schema
-  []
+  [db]
   (-> (io/resource "schema.edn")
       slurp
       edn/read-string
-      (attach-resolvers (resolvers/resolver-map))
+      (attach-resolvers (resolvers/resolver-map db))
       schema/compile))
 
-(defmethod ig/init-key :nextplace/schema [_ _]
-  (load-schema))
+(defmethod ig/init-key :nextplace/schema [_ {:keys [db]}]
+  (load-schema db))

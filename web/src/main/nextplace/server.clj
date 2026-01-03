@@ -5,7 +5,9 @@
             [integrant.core :as ig]
             [nextplace.schema :as schema]
             [reitit.ring :as ring]
-            [ring.adapter.jetty :as jetty]))
+            [ring.adapter.jetty :as jetty]
+            [ring.middleware.content-type :refer [wrap-content-type]]
+            [ring.util.mime-type :as mime]))
 
 (defn graphql-handler [schema]
   (fn [request]
@@ -25,17 +27,18 @@
    :body    (slurp (io/resource "public/index.html"))})
 
 (defn create-handler [schema]
-  (ring/ring-handler
-   (ring/router
-    [["/" {:get index-handler}]
-     ["/graphql" {:post (graphql-handler schema)}]])
-   (ring/routes
-    (ring/create-resource-handler {:path "/"
-                                   :root "public"})
-    (ring/create-default-handler
-     {:not-found (constantly {:status  404
-                              :headers {"Content-Type" "text/plain"}
-                              :body    "Not found"})}))))
+  (-> (ring/ring-handler
+       (ring/router
+        [["/" {:get index-handler}]
+         ["/graphql" {:post (graphql-handler schema)}]])
+       (ring/routes
+        (ring/create-resource-handler {:path "/"
+                                       :root "public"})
+        (ring/create-default-handler
+         {:not-found (constantly {:status  404
+                                  :headers {"Content-Type" "text/plain"}
+                                  :body    "Not found"})})))
+      wrap-content-type))
 
 (defn create-server [{:keys [schema port]}]
   (jetty/run-jetty (create-handler schema)
@@ -53,7 +56,9 @@
 
 (defn -main
   [& args]
-  (let [server (create-server {:schema (schema/load-schema)
+  (let [db     (nextplace.db/open-db "data/nextplace.db")
+        schema (schema/load-schema db)
+        server (create-server {:schema schema
                                :port   8888})]
     (println "GraphQL server running on http://localhost:8888/graphql")
     @(promise)))
