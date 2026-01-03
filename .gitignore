@@ -1,0 +1,37 @@
+# Clojure
+.cpcache/
+.nrepl-port
+.socket-repl-port
+target/
+classes/
+checkouts/
+pom.xml
+pom.xml.asc
+*.jar
+*.class
+.lein-*
+.nrepl-history
+
+# Logs
+logs
+*.log
+npm-debug.log*
+
+# IDEs
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Environment
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local

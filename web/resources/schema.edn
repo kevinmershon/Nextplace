@@ -1,0 +1,167 @@
+{:enums
+ {:weather_condition
+  {:description "Weather conditions for Flow 2"
+   :values      [:COASTAL_BREEZE :INLAND_HEAT :FOG :SUN :WIND :COOL_CLEAR :WARM_DRY :GOLDEN_HOUR]}
+
+  :commitment_status
+  {:description "Status of user commitment to an event"
+   :values      [:PENDING :COMMITTED :COMPLETED :NO_SHOW :LATE :EARLY_DEPARTURE]}}
+
+ :objects
+ {:Location
+  {:description "A physical location"
+   :fields      {:id          {:type (non-null ID)}
+                 :name        {:type (non-null String)}
+                 :latitude    {:type (non-null Float)}
+                 :longitude   {:type (non-null Float)}
+                 :description {:type String}
+                 :distance_km {:type        Float
+                               :description "Distance from user in kilometers"}}}
+
+  :Activity
+  {:description "An activity to do at a location"
+   :fields      {:id                 {:type (non-null ID)}
+                 :name               {:type (non-null String)}
+                 :description        {:type (non-null String)}
+                 :duration_minutes   {:type Int}
+                 :external_event_url {:type        String
+                                      :description "URL if sourced from Meetup/Eventbrite"}}}
+
+  :WeatherCondition
+  {:description "Current or forecasted weather"
+   :fields      {:condition           {:type (non-null :weather_condition)}
+                 :temperature_celsius {:type Float}
+                 :description         {:type String}}}
+
+  :Suggestion
+  {:description "Flow 1: A place and activity suggestion"
+   :fields      {:id              {:type (non-null ID)}
+                 :location        {:type (non-null :Location)}
+                 :activity        {:type (non-null :Activity)}
+                 :suggested_time  {:type        (non-null String)
+                                   :description "ISO 8601 datetime"}
+                 :reason          {:type        String
+                                   :description "Why this suggestion was generated"}
+                 :social_event_id {:type        ID
+                                   :description "If this is a Flow 3 social event"}}}
+
+  :WeatherEscape
+  {:description "Flow 2: A weather-driven destination"
+   :fields      {:id                  {:type (non-null ID)}
+                 :location            {:type (non-null :Location)}
+                 :activity            {:type (non-null :Activity)}
+                 :current_weather     {:type (non-null :WeatherCondition)}
+                 :destination_weather {:type (non-null :WeatherCondition)}
+                 :drive_time_minutes  {:type (non-null Int)}
+                 :reason              {:type String}}}
+
+  :Participant
+  {:description "A user participating in a social event"
+   :fields      {:id                {:type (non-null ID)}
+                 :name              {:type (non-null String)}
+                 :photo_url         {:type String}
+                 :commitment_status {:type (non-null :commitment_status)}}}
+
+  :SocialEvent
+  {:description "Flow 3: A small-group social encounter"
+   :fields      {:id                      {:type (non-null ID)}
+                 :location                {:type (non-null :Location)}
+                 :activity                {:type (non-null :Activity)}
+                 :start_time              {:type        (non-null String)
+                                           :description "ISO 8601 datetime"}
+                 :max_participants        {:type (non-null Int)}
+                 :participants            {:type (list :Participant)}
+                 :available_slots         {:type (non-null Int)}
+                 :commitment_requirements {:type String}}}
+
+  :Experience
+  {:description "A completed experience with reflection"
+   :fields      {:id                  {:type (non-null ID)}
+                 :suggestion_id       {:type ID}
+                 :social_event_id     {:type ID}
+                 :completed_at        {:type        (non-null String)
+                                       :description "ISO 8601 datetime"}
+                 :overall_rating      {:type        Int
+                                       :description "1-5 rating"}
+                 :reflection          {:type        String
+                                       :description "User's free-text reflection"}
+                 :participant_ratings {:type        (list :ParticipantRating)
+                                       :description "Pairwise ratings for Flow 3"}}}
+
+  :ParticipantRating
+  {:description "Private rating of another participant"
+   :fields      {:participant_id {:type (non-null ID)}
+                 :rating         {:type        (non-null Int)
+                                  :description "1-5 rating, never exposed to rated user"}}}
+
+  :User
+  {:description "Minimal user profile"
+   :fields      {:id                          {:type (non-null ID)}
+                 :name                        {:type (non-null String)}
+                 :photo_url                   {:type String}
+                 :flow3_unlocked              {:type        (non-null Boolean)
+                                               :description "Whether user has access to social events"}
+                 :completed_experiences_count {:type (non-null Int)}}}}
+
+ :queries
+ {:current_suggestion
+  {:type        :Suggestion
+   :description "Flow 1: Get current place+activity suggestion"
+   :resolve     :query/current-suggestion}
+
+  :weather_escape
+  {:type        :WeatherEscape
+   :description "Flow 2: Get weather-driven escape suggestion"
+   :args        {:user_latitude  {:type (non-null Float)}
+                 :user_longitude {:type (non-null Float)}}
+   :resolve     :query/weather-escape}
+
+  :available_social_events
+  {:type        (list :SocialEvent)
+   :description "Flow 3: Get available social events (requires unlock)"
+   :resolve     :query/available-social-events}
+
+  :user_profile
+  {:type        :User
+   :description "Get current user profile"
+   :resolve     :query/user-profile}
+
+  :experience_history
+  {:type        (list :Experience)
+   :description "Get user's past experiences"
+   :args        {:limit {:type          Int
+                         :default-value 20}}
+   :resolve     :query/experience-history}}
+
+ :mutations
+ {:accept_suggestion
+  {:type        :Suggestion
+   :description "Accept a suggestion and commit to it"
+   :args        {:suggestion_id {:type (non-null ID)}}
+   :resolve     :mutation/accept-suggestion}
+
+  :regenerate_suggestion
+  {:type        :Suggestion
+   :description "Skip current suggestion and get a new one"
+   :resolve     :mutation/regenerate-suggestion}
+
+  :join_social_event
+  {:type        :SocialEvent
+   :description "Flow 3: Join a social event"
+   :args        {:event_id {:type (non-null ID)}}
+   :resolve     :mutation/join-social-event}
+
+  :complete_experience
+  {:type        :Experience
+   :description "Mark experience as complete and submit reflection"
+   :args        {:suggestion_id       {:type ID}
+                 :social_event_id     {:type ID}
+                 :overall_rating      {:type (non-null Int)}
+                 :reflection          {:type String}
+                 :participant_ratings {:type (list :ParticipantRatingInput)}}
+   :resolve     :mutation/complete-experience}}
+
+ :input-objects
+ {:ParticipantRatingInput
+  {:fields {:participant_id {:type (non-null ID)}
+            :rating         {:type (non-null Int)}}}}}

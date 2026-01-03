@@ -1,0 +1,5 @@
+{:align-binding-columns?          true
+ :align-form-columns?             true
+ :align-map-columns?              true
+ :blank-lines-separate-alignment? true
+ :indent-line-comments?           true}

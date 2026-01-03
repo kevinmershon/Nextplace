@@ -1,0 +1,34 @@
+{:paths ["src/main" "resources"]
+ :deps  {org.clojure/clojure            {:mvn/version "1.12.0"}
+         com.walmartlabs/lacinia        {:mvn/version "1.2.2"}
+         metosin/reitit                 {:mvn/version "0.7.2"}
+         metosin/reitit-ring            {:mvn/version "0.7.2"}
+         ring/ring-core                 {:mvn/version "1.13.0"}
+         ring/ring-jetty-adapter        {:mvn/version "1.13.0"}
+         org.clojure/data.json          {:mvn/version "2.5.0"}
+         org.clojure/tools.logging      {:mvn/version "1.3.0"}
+         org.slf4j/slf4j-api            {:mvn/version "2.0.13"}
+         ch.qos.logback/logback-classic {:mvn/version "1.5.6"}
+         metosin/muuntaja               {:mvn/version "0.6.10"}
+         org.clojure/core.async         {:mvn/version "1.6.681"}
+         org.clj-commons/claypoole      {:mvn/version "1.2.2"}
+         fi.metosin/oksa                {:mvn/version "1.1.0"}
+         kotyo/clj-rocksdb              {:mvn/version "0.1.3"}
+         com.taoensso/carmine           {:mvn/version "3.4.1"}
+         integrant/integrant            {:mvn/version "0.13.1"}}
+ :aliases
+ {:dev  {:extra-paths ["src/dev"]
+         :extra-deps  {org.clojure/tools.namespace {:mvn/version "1.5.0"}
+                       integrant/repl              {:mvn/version "0.3.3"}}}
+  :test {:extra-paths ["test"]
+         :extra-deps  {org.clojure/test.check {:mvn/version "1.1.1"}}}
+  :mcp  {:extra-paths ["src/mcp"]
+         :extra-deps  {org.slf4j/slf4j-nop     {:mvn/version "2.0.16"}
+                       com.bhauman/clojure-mcp {:git/url "https://github.com/bhauman/clojure-mcp.git"
+                                                :git/tag "v0.1.6-alpha"
+                                                :git/sha "4ad62f4"}}
+         :exec-fn     mcp/connect}
+  :fmt  {:extra-deps {com.github.kevinmershon/cljfmt {:git/url "https://github.com/kevinmershon/cljfmt"
+                                                      :git/sha "5b088f0f91c0feec378af7d80b16188636108082"}}
+         :main-opts  ["-m" "cljfmt.main"]}
+  :main {:main-opts ["-m" "nextplace.server"]}}}

@@ -1,0 +1,4 @@
+{:nextplace/schema {}
+ :nextplace/server {:schema #ig/ref :nextplace/schema
+                    :port   8888
+                    :env    :dev}}
