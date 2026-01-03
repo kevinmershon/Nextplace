@@ -153,19 +153,35 @@ Enable low-pressure, high-integrity social interaction anchored to real activiti
 
 ### Core Location Attributes
 All locations tracked in the system include:
+
+**Geographic Data:**
+- **Latitude/Longitude** - General location coordinates
+- **Meeting point coordinates** - Precise spot within location (for large venues)
+- **Meeting point instructions** - Human-readable directions (e.g., "By the main fountain", "North parking lot entrance")
+- **Address** - Full address for display and deep linking
+
+**Venue Information:**
 - **Price range** - Estimated cost level for the venue
 - **Serves alcohol** - Boolean flag for alcohol availability
 - **Serves non-alcoholic drinks** - Boolean flag for beverage availability
 - **Serves food** - Boolean flag for food availability
 - **Dog friendly** - Boolean flag (some parks/hikes restrict dogs)
-- **Parking information**:
-  - Closest parking location or garage
-  - Expected parking price (or marked as free)
+
+**Parking Information:**
+- **Closest parking location** - Name/address of garage or lot
+- **Expected parking price** - Cost estimate or marked as free
+
+**Meeting Point Rationale:**
+- Large parks/venues need precise meeting spots
+- "Golden Gate Park" → "By the carousel in Koret Children's Quarter"
+- "Dolores Park" → "Top of the hill near tennis courts"
+- Deep link opens to precise coordinates, not general location
 
 These attributes enable:
 - Activity pairing logic (e.g., dog-friendly suggestions for dog owners)
 - Budget-appropriate suggestions
 - Practical planning (parking, refreshments)
+- Precise meetup coordination for social events
 
 ---
 
@@ -194,13 +210,87 @@ Unlocked after positive social interactions:
 
 ## MVP Scope Guardrails
 Explicitly excluded from MVP:
-- Long-term planning
-- Social feeds
-- Public profiles or bios
 - Chat-centric interaction
 - Broad geographic coverage
-- User browsing or discovery
 - Friend system (post-MVP)
+
+## Permanent Architecture Constraints
+
+### Never-Implement Features (PERMANENT)
+**These features will NEVER be implemented, regardless of version or future scope:**
+
+- ❌ **Long-term planning** - No calendar integration, future scheduling beyond 2 days
+- ❌ **Social feeds** - No timeline, activity stream, or content browsing
+- ❌ **Public profiles or bios** - No user profiles visible to others
+- ❌ **User browsing or discovery** - No search/browse for other users
+
+**Rationale:**
+These features violate core product principles: spontaneity over planning, action over browsing. The product is about doing things now, not discovering people, consuming content, or optimizing schedules. Social interaction is anchored to real-world activities, not profiles or feeds.
+
+### No In-App Map Rendering (PERMANENT)
+**This application will NEVER render maps.** This is not a "for now" or "in MVP" decision. This is a permanent architectural constraint.
+
+#### What is NOT Allowed
+- ❌ **Google Maps SDK** (Android or iOS)
+- ❌ **Map rendering libraries** (Leaflet, Mapbox, MapKit, etc.)
+- ❌ **Static map images** (Google Maps Static API, etc.)
+- ❌ **Map tiles or embedded maps**
+- ❌ **Any GraphQL field like `map_image_url` or `map_tile_url`**
+- ❌ **In-app navigation or route rendering**
+
+#### What IS Allowed
+- ✅ **Display location data as text** (name, address, coordinates, distance)
+- ✅ **"Open in Maps" button** that deep links to native map app
+- ✅ **Backend Google Maps API usage** for geocoding and place lookups ONLY
+- ✅ **Storing/returning coordinates** for deep linking
+
+#### Implementation Pattern
+```kotlin
+// Android
+fun openInMaps(context: Context, latitude: Double, longitude: Double, name: String) {
+    val uri = "geo:$latitude,$longitude?q=$latitude,$longitude($name)"
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+    context.startActivity(intent)
+}
+```
+
+```swift
+// iOS
+func openInMaps(latitude: Double, longitude: Double, name: String) {
+    let url = "http://maps.apple.com/?ll=\(latitude),\(longitude)&q=\(name)"
+    UIApplication.shared.open(URL(string: url)!)
+}
+```
+
+```javascript
+// Web
+function openInMaps(latitude, longitude, name) {
+    const url = `https://www.google.com/maps/search/?api=1&query=${latitude},${longitude}`;
+    window.open(url, '_blank');
+}
+```
+
+#### Why This Constraint Exists
+**Security**: No API keys in mobile apps - cannot be reverse-engineered from binaries
+
+**Simplicity**: Zero map rendering complexity, smaller binary size, faster development
+
+**User Experience**: Native app familiarity, better navigation, users can use their preferred map app
+
+**Cost**: Backend geocoding only, no per-device API costs, centralized rate limiting
+
+#### Enforcement
+**Code Review Checklist:**
+- No imports of map SDKs or libraries
+- No `map_image_url` or similar fields in GraphQL schema
+- No map rendering UI components
+- No static map image generation code
+
+**Auto-reject PRs that:**
+- Add Google Maps SDK dependency
+- Add map rendering library
+- Add map-related fields to GraphQL schema
+- Contain map rendering UI code
 
 ---
 

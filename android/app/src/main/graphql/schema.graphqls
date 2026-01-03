@@ -1,0 +1,19 @@
+# Nextplace GraphQL Schema (Stub)
+# This is a minimal schema to allow the Android app to build.
+# Replace this with the full schema by running:
+#   ./gradlew :app:downloadApolloSchema --endpoint="http://localhost:8888/graphql"
+
+schema {
+  query: Query
+  mutation: Mutation
+}
+
+type Query {
+  # Placeholder query
+  _placeholder: String
+}
+
+type Mutation {
+  # Placeholder mutation
+  _placeholder(input: String): String
+}

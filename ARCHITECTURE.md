@@ -302,12 +302,71 @@ Server runs on port 8888 by default. Database and schema initialize automaticall
 - Integration tests for GraphQL API
 - End-to-end tests for user flows
 
+## Maps and Location Architecture
+
+### ⚠️ CRITICAL: No In-App Maps (PERMANENT CONSTRAINT)
+**Design principle: No map rendering in the application. Ever.**
+
+**This is a permanent architectural constraint. Do not add:**
+- ❌ Google Maps SDK (Android/iOS)
+- ❌ Map rendering libraries (Leaflet, Mapbox, etc.)
+- ❌ Static map image generation
+- ❌ Map tiles or embedded maps
+- ❌ `map_image_url` or similar fields in GraphQL schema
+
+**Backend:**
+- Google Maps API key used for geocoding and place lookups only
+- Returns location data: coordinates, name, address
+- No map image generation
+
+**Mobile Apps:**
+- Display location name, address, distance
+- Display meeting point instructions (e.g., "By the main fountain")
+- "Open in Maps" button creates deep link to device's native map app
+- Deep link uses `meeting_point_latitude/longitude` if available, else general `latitude/longitude`
+- Android: `geo:` URI scheme or Google Maps intent
+- iOS: Apple Maps URL scheme
+- No map rendering, no Maps SDK dependencies
+
+**Deep Link Pattern:**
+```kotlin
+// Android - opens in user's preferred map app
+// Uses precise meeting point if available
+fun openInMaps(location: Location) {
+    val lat = location.meetingPointLatitude ?: location.latitude
+    val lng = location.meetingPointLongitude ?: location.longitude
+    val name = location.name
+
+    val uri = "geo:$lat,$lng?q=$lat,$lng($name)"
+    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(uri))
+    context.startActivity(intent)
+}
+```
+
+```swift
+// iOS - opens in Apple Maps
+func openInMaps(latitude: Double, longitude: Double, name: String) {
+    let url = "http://maps.apple.com/?ll=\(latitude),\(longitude)&q=\(name)"
+    UIApplication.shared.open(URL(string: url)!)
+}
+```
+
+**Benefits:**
+- No API key in mobile apps
+- Uses device's preferred navigation app
+- Zero map rendering complexity
+- Smaller app binary size
+- Native map experience users already know
+
+---
+
 ## Performance Considerations
 
 - RocksDB provides fast embedded storage
-- Redis (via Carmine) for caching layer
+- Redis (via Carmine) for caching layer and geospatial queries
 - Ring middleware for content-type handling
 - Reitit for efficient routing
+- Geocoding result caching reduces Google Maps API calls
 
 ## Authentication
 

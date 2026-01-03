@@ -1,0 +1,6 @@
+# Copy this file to local.properties and configure endpoint
+
+## GraphQL API endpoint
+# For Android Emulator, use 10.0.2.2 to access host localhost
+# For physical device on same network, use your computer's local IP
+GRAPHQL_ENDPOINT=http://10.0.2.2:8888/graphql

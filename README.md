@@ -38,9 +38,14 @@ Visit [http://localhost:8888](http://localhost:8888) to join the waitlist.
 - [CONSIDERATIONS.md](CONSIDERATIONS.md) - Design philosophy and principles
 
 **Tech Stack:**
-- Backend: Clojure with Lacinia GraphQL, Reitit, RocksDB
-- Frontend: Preact with HTM and Signals (standalone from CDN)
-- Development: Integrant REPL with console system for database interrogation
+- **Backend:** Clojure with Lacinia GraphQL, Reitit, RocksDB
+- **Web Frontend:** Preact with HTM and Signals (standalone from CDN)
+- **Android:** Kotlin with Jetpack Compose, Apollo GraphQL, Hilt
+- **Development:** Integrant REPL with console system for database interrogation
+
+**Current Status:** MVP backend complete with authentication. Android app initialized.
+
+**Architecture Note:** No in-app map rendering. Backend uses Google Maps API for geocoding/place lookups only. Mobile apps display location info and open coordinates in device's native map app via deep links.
 
 ---
 

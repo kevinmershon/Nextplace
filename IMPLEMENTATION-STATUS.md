@@ -141,11 +141,21 @@ This document tracks current implementation progress, technical decisions, and c
 **Status:** Schema defined, implementation pending
 
 Location attributes to track:
+
+**Geographic:**
+- General coordinates (latitude/longitude)
+- Meeting point coordinates (precise spot for large venues)
+- Meeting point instructions (human-readable, e.g., "By main fountain")
+- Address (for display and deep linking)
+
+**Venue:**
 - Price range (FREE, $, $$, $$$, $$$$)
 - Serves alcohol (boolean)
 - Serves non-alcoholic drinks (boolean)
 - Serves food (boolean)
 - Dog friendly (boolean)
+
+**Parking:**
 - Parking location (closest garage/lot)
 - Parking price (or FREE)
 
@@ -197,13 +207,34 @@ Location attributes to track:
 - Free-text reflection storage
 - Participant rating (Flow 3)
 
-### 📋 Frontend Application
+### 📋 Web Frontend
 **Status:** Minimal landing page only
 
 - Preact + HTM + Signals implementation
 - GraphQL client integration
 - Core surfaces (Home, Commitment, Reflection, History)
 - Mobile-first responsive design
+
+### 📋 Android Application
+**Status:** Project initialized, implementation pending
+
+**Completed:**
+- Android Studio project structure with Kotlin and Compose
+- Build configuration with Hilt, Apollo GraphQL
+- Material 3 theme with brand colors
+- Basic MainActivity scaffold
+- ProGuard configuration for release builds
+- Architecture: No in-app maps, deep links to native map apps only
+
+**Pending:**
+- GraphQL schema download and code generation
+- Authentication flow (magic link email entry)
+- Core screens (Home, Browse, Event, History)
+- Location attributes display (price, amenities, parking)
+- Event constraints enforcement (2-event limit, timing)
+- Blacklist filtering implementation
+- Event chat functionality
+- Post-event reflection and rating UI
 
 ---
 

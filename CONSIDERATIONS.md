@@ -260,7 +260,38 @@ The product should feel like a quiet nudge, not a hype engine.
 
 ## Guiding Question for All Decisions
 
-“Does this make it easier for someone to actually go somewhere today?”
+"Does this make it easier for someone to actually go somewhere today?"
 
 If not, it is likely out of scope.
+
+---
+
+## Permanent Architecture Constraints
+
+### No Map Rendering Ever
+
+**This constraint must never be violated in any version of the product.**
+
+The app will NEVER:
+- Render maps (web or mobile)
+- Include Google Maps SDK or any map library
+- Generate or serve static map images
+- Display map tiles or embedded maps
+
+The app WILL:
+- Display location text (name, address, distance)
+- Provide "Open in Maps" button
+- Deep link to user's native map app
+
+**Why this is permanent:**
+- Security: No API keys in mobile apps
+- Simplicity: No map rendering complexity
+- UX: Users already know their map app
+- Size: Smaller binary, no map dependencies
+- Cost: Backend geocoding only, no per-device API costs
+
+**If someone proposes adding maps:**
+The answer is NO. Point them to this document.
+
+---
 

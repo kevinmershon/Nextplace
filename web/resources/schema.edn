@@ -10,27 +10,35 @@
  :objects
  {:Location
   {:description "A physical location"
-   :fields      {:id                       {:type (non-null ID)}
-                 :name                     {:type (non-null String)}
-                 :latitude                 {:type (non-null Float)}
-                 :longitude                {:type (non-null Float)}
-                 :description              {:type String}
-                 :distance_km              {:type        Float
-                                            :description "Distance from user in kilometers"}
-                 :price_range              {:type        String
-                                            :description "Price level: FREE, $, $$, $$$, $$$$"}
-                 :serves_alcohol           {:type        Boolean
-                                            :description "Location serves alcoholic beverages"}
-                 :serves_non_alcoholic     {:type        Boolean
-                                            :description "Location serves non-alcoholic drinks"}
-                 :serves_food              {:type        Boolean
-                                            :description "Location serves food"}
-                 :dog_friendly             {:type        Boolean
-                                            :description "Dogs allowed at location"}
-                 :parking_location         {:type        String
-                                            :description "Closest parking or garage name/address"}
-                 :parking_price            {:type        String
-                                            :description "Expected parking cost or 'FREE'"}}}
+   :fields      {:id                         {:type (non-null ID)}
+                 :name                       {:type (non-null String)}
+                 :latitude                   {:type (non-null Float)}
+                 :longitude                  {:type (non-null Float)}
+                 :description                {:type String}
+                 :address                    {:type        String
+                                              :description "Full address for display and deep linking"}
+                 :meeting_point_latitude     {:type        Float
+                                              :description "Precise meeting spot latitude (e.g., specific bench in park)"}
+                 :meeting_point_longitude    {:type        Float
+                                              :description "Precise meeting spot longitude"}
+                 :meeting_point_instructions {:type        String
+                                              :description "Human-readable meeting instructions (e.g., 'By the main fountain')"}
+                 :distance_km                {:type        Float
+                                              :description "Distance from user in kilometers"}
+                 :price_range                {:type        String
+                                              :description "Price level: FREE, $, $$, $$$, $$$$"}
+                 :serves_alcohol             {:type        Boolean
+                                              :description "Location serves alcoholic beverages"}
+                 :serves_non_alcoholic       {:type        Boolean
+                                              :description "Location serves non-alcoholic drinks"}
+                 :serves_food                {:type        Boolean
+                                              :description "Location serves food"}
+                 :dog_friendly               {:type        Boolean
+                                              :description "Dogs allowed at location"}
+                 :parking_location           {:type        String
+                                              :description "Closest parking or garage name/address"}
+                 :parking_price              {:type        String
+                                              :description "Expected parking cost or 'FREE'"}}}
 
   :Activity
   {:description "An activity to do at a location"
