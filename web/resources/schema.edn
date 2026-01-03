@@ -10,13 +10,27 @@
  :objects
  {:Location
   {:description "A physical location"
-   :fields      {:id          {:type (non-null ID)}
-                 :name        {:type (non-null String)}
-                 :latitude    {:type (non-null Float)}
-                 :longitude   {:type (non-null Float)}
-                 :description {:type String}
-                 :distance_km {:type        Float
-                               :description "Distance from user in kilometers"}}}
+   :fields      {:id                       {:type (non-null ID)}
+                 :name                     {:type (non-null String)}
+                 :latitude                 {:type (non-null Float)}
+                 :longitude                {:type (non-null Float)}
+                 :description              {:type String}
+                 :distance_km              {:type        Float
+                                            :description "Distance from user in kilometers"}
+                 :price_range              {:type        String
+                                            :description "Price level: FREE, $, $$, $$$, $$$$"}
+                 :serves_alcohol           {:type        Boolean
+                                            :description "Location serves alcoholic beverages"}
+                 :serves_non_alcoholic     {:type        Boolean
+                                            :description "Location serves non-alcoholic drinks"}
+                 :serves_food              {:type        Boolean
+                                            :description "Location serves food"}
+                 :dog_friendly             {:type        Boolean
+                                            :description "Dogs allowed at location"}
+                 :parking_location         {:type        String
+                                            :description "Closest parking or garage name/address"}
+                 :parking_price            {:type        String
+                                            :description "Expected parking cost or 'FREE'"}}}
 
   :Activity
   {:description "An activity to do at a location"
@@ -69,6 +83,10 @@
                  :activity                {:type (non-null :Activity)}
                  :start_time              {:type        (non-null String)
                                            :description "ISO 8601 datetime"}
+                 :created_at              {:type        (non-null String)
+                                           :description "ISO 8601 datetime when event was created"}
+                 :host_user_id            {:type        (non-null ID)
+                                           :description "User who created/hosts the event"}
                  :max_participants        {:type (non-null Int)}
                  :participants            {:type (list :Participant)}
                  :available_slots         {:type (non-null Int)}
@@ -102,7 +120,9 @@
                  :photo_url                   {:type String}
                  :flow3_unlocked              {:type        (non-null Boolean)
                                                :description "Whether user has access to social events"}
-                 :completed_experiences_count {:type (non-null Int)}}}
+                 :completed_experiences_count {:type (non-null Int)}
+                 :active_event_count          {:type        (non-null Int)
+                                               :description "Number of events user is currently committed to (max 2)"}}}
 
   :SignupResult
   {:description "Result of user signup"

@@ -111,6 +111,10 @@ Example configuration:
                     :env    :dev}}
 ```
 
+## Current Implementation Status
+
+See [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md) for detailed progress tracking, completed features, pending work, and lessons learned.
+
 ## Development Workflow
 
 ### Prerequisites
@@ -249,9 +253,14 @@ The console system provides namespace-based REPL interfaces for database interro
 
 ### RocksDB Storage
 - Embedded key-value store at `data/nextplace.db`
-- Email-keyed user profiles: `user:<email>`
-- EDN serialization for values
+- EDN serialization for all values
 - Integrant lifecycle management
+
+#### Storage Patterns
+- `user:<email>` - User profiles with fields: `id`, `email`, `name`, `signed_up_at`, `flow3_unlocked`, `completed_experiences_count`
+- `auth_token:<token>` - Authentication tokens with fields: `token`, `email`, `created_at`, `expires_at`, `used`
+
+All persisted values use snake_case field names for consistency.
 
 ### Operations
 - `db/get-value` - Retrieve value by key
@@ -261,6 +270,7 @@ The console system provides namespace-based REPL interfaces for database interro
 ## Code Style
 
 ### Naming Conventions
+- **Persisted data (RocksDB values):** snake_case (`signed_up_at`, `flow3_unlocked`, `expires_at`) - **CRITICAL:** All persisted data uses snake_case to ensure consistency in serialization
 - **Clojure symbols/variables:** kebab-case (`user-id`, `signed-up-at`)
 - **Filenames:** snake_case (`resolvers.clj`, `schema.clj`)
 - **GraphQL fields:** snake_case with nounVerb (`user_signup`, `suggestion_accept`)

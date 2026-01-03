@@ -86,7 +86,7 @@ Enable low-pressure, high-integrity social interaction anchored to real activiti
 ### Description
 - Small groups (2–6 people)
 - Anchored to places and activities from Flows 1 and 2
-- Same-day or near-term only
+- Near-term only (4 hours minimum, 2 days maximum from current time)
 - No chat-first interaction; showing up is the point
 
 ### Event Model
@@ -94,12 +94,29 @@ Enable low-pressure, high-integrity social interaction anchored to real activiti
 - Users opt in explicitly
 - Group participation during the activity is voluntary
 - Presence is mandatory once committed
+- Events cannot be created or joined less than 4 hours from current time
+- Events cannot be created or joined more than 2 days from current time
+
+### Event Creation
+- No general "browse events" page
+- Users can browse locations page
+- "Check it out" button on location creates new event hosted by that user
+- System-generated suggestions also create events when accepted
+
+### Commitment Limits
+- Users can only commit to maximum 2 events at a time
+- Prevents toxic users from blocking others' participation
+- Enforces intentionality and reduces flaking
 
 ### Ratings and Reputation
 - Users rate:
   - Overall experience
   - Each participant individually (pairwise ratings)
 - Low pairwise ratings result in soft blacklisting (no future pairing)
+- Blacklisting is bidirectional and transitive:
+  - If User A blacklists User B, neither can see each other's events
+  - If User A joins Event X, User B cannot see or join Event X
+  - If User A hosts Event Y, User B cannot see or join Event Y
 - Ratings are never exposed to other users
 
 ### Commitment Enforcement
@@ -115,6 +132,13 @@ Enable low-pressure, high-integrity social interaction anchored to real activiti
   - Activity tolerance (distance, weather, novelty)
   - Reflection depth
 
+### Privacy and Discovery
+- No user browsing or profile discovery
+- Users only visible in:
+  - Event chat (for committed participants)
+  - Post-event rating screens
+- No public profiles or bios
+
 ---
 
 ## Integrity Principles
@@ -125,6 +149,49 @@ Enable low-pressure, high-integrity social interaction anchored to real activiti
 
 ---
 
+## Location Data Model
+
+### Core Location Attributes
+All locations tracked in the system include:
+- **Price range** - Estimated cost level for the venue
+- **Serves alcohol** - Boolean flag for alcohol availability
+- **Serves non-alcoholic drinks** - Boolean flag for beverage availability
+- **Serves food** - Boolean flag for food availability
+- **Dog friendly** - Boolean flag (some parks/hikes restrict dogs)
+- **Parking information**:
+  - Closest parking location or garage
+  - Expected parking price (or marked as free)
+
+These attributes enable:
+- Activity pairing logic (e.g., dog-friendly suggestions for dog owners)
+- Budget-appropriate suggestions
+- Practical planning (parking, refreshments)
+
+---
+
+## Post-MVP Features
+
+### Friend System
+Unlocked after positive social interactions:
+
+**Friend Requests:**
+- Prompted after rating another participant 5/5
+- Opt-in friend request system
+- No user browsing or profile discovery outside events
+
+**Friend Management:**
+- Friends list for managing connections
+- Ability to remove friends
+- Optional notifications when friends join/host events
+- Enables spontaneous "tag along" behavior
+
+**Privacy Maintained:**
+- Friends cannot browse each other's profiles
+- No bio, interest lists, or social feed
+- Friendship enables notifications, not surveillance
+
+---
+
 ## MVP Scope Guardrails
 Explicitly excluded from MVP:
 - Long-term planning
@@ -132,6 +199,8 @@ Explicitly excluded from MVP:
 - Public profiles or bios
 - Chat-centric interaction
 - Broad geographic coverage
+- User browsing or discovery
+- Friend system (post-MVP)
 
 ---
 

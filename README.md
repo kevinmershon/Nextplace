@@ -31,12 +31,16 @@ Visit [http://localhost:8888](http://localhost:8888) to join the waitlist.
 
 ## For Developers
 
-See [ARCHITECTURE.md](ARCHITECTURE.md) for technical details, development setup, and contribution guidelines.
+**Quick Links:**
+- [ARCHITECTURE.md](ARCHITECTURE.md) - Technical details, development setup, and contribution guidelines
+- [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md) - Current progress, completed features, and next steps
+- [PROJECT-PLAN.md](PROJECT-PLAN.md) - Product vision and flow definitions
+- [CONSIDERATIONS.md](CONSIDERATIONS.md) - Design philosophy and principles
 
 **Tech Stack:**
 - Backend: Clojure with Lacinia GraphQL, Reitit, RocksDB
 - Frontend: Preact with HTM and Signals (standalone from CDN)
-- See [PROJECT-PLAN.md](PROJECT-PLAN.md) and [CONSIDERATIONS.md](CONSIDERATIONS.md) for detailed product specification
+- Development: Integrant REPL with console system for database interrogation
 
 ---
 
