@@ -17,7 +17,12 @@
                                          :exclusions  [org.rocksdb/rocksdbjni]}
          org.rocksdb/rocksdbjni         {:mvn/version "7.7.3"}
          com.taoensso/carmine           {:mvn/version "3.4.1"}
-         integrant/integrant            {:mvn/version "0.13.1"}}
+         integrant/integrant            {:mvn/version "0.13.1"}
+         com.draines/postal             {:mvn/version "2.0.5"}
+         buddy/buddy-sign               {:mvn/version "3.5.351"}
+         buddy/buddy-core               {:mvn/version "1.11.423"}
+         clj-http/clj-http              {:mvn/version "3.13.0"}
+         clj-time/clj-time              {:mvn/version "0.15.2"}}
  :aliases
  {:dev  {:extra-paths ["src/dev"]
          :extra-deps  {org.clojure/tools.namespace {:mvn/version "1.5.0"}

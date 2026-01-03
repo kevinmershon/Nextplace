@@ -106,10 +106,24 @@
 
   :SignupResult
   {:description "Result of user signup"
-   :fields      {:id         {:type (non-null ID)}
-                 :email      {:type (non-null String)}
-                 :signedUpAt {:type        (non-null String)
-                              :description "ISO 8601 datetime"}}}}
+   :fields      {:id           {:type (non-null ID)}
+                 :email        {:type (non-null String)}
+                 :signed_up_at {:type        (non-null String)
+                                :description "ISO 8601 datetime"}}}
+
+  :AuthRequestResult
+  {:description "Result of authentication request"
+   :fields      {:email      {:type (non-null String)}
+                 :message    {:type (non-null String)}
+                 :expires_at {:type        (non-null String)
+                              :description "ISO 8601 datetime"}}}
+
+  :AuthVerifyResult
+  {:description "Result of token verification"
+   :fields      {:user          {:type (non-null :User)}
+                 :session_token {:type (non-null String)}
+                 :expires_at    {:type        (non-null String)
+                                 :description "ISO 8601 datetime"}}}}
 
  :queries
  {:current_suggestion
@@ -173,7 +187,19 @@
   {:type        :SignupResult
    :description "Sign up a new user with email"
    :args        {:email {:type (non-null String)}}
-   :resolve     :mutation/user-signup}}
+   :resolve     :mutation/user-signup}
+
+  :user_auth_request
+  {:type        :AuthRequestResult
+   :description "Request magic link authentication email"
+   :args        {:email {:type (non-null String)}}
+   :resolve     :mutation/user-auth-request}
+
+  :user_auth_verify
+  {:type        :AuthVerifyResult
+   :description "Verify magic link token and create session"
+   :args        {:token {:type (non-null String)}}
+   :resolve     :mutation/user-auth-verify}}
 
  :input-objects
  {:ParticipantRatingInput

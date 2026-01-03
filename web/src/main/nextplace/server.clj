@@ -9,14 +9,17 @@
             [ring.middleware.content-type :refer [wrap-content-type]]
             [ring.util.mime-type :as mime]))
 
-(defn graphql-handler [schema]
+(defn graphql-handler [schema-component]
   (fn [request]
     (let [body       (slurp (:body request))
           query-data (json/read-str body :key-fn keyword)
-          result     (lacinia/execute schema
+          context    {:email    (:email schema-component)
+                      :auth     (:auth schema-component)
+                      :base-url (:base-url schema-component)}
+          result     (lacinia/execute (:compiled-schema schema-component)
                                       (:query query-data)
                                       (:variables query-data)
-                                      nil)]
+                                      context)]
       {:status  200
        :headers {"Content-Type" "application/json"}
        :body    (json/write-str result)})))
@@ -56,9 +59,18 @@
 
 (defn -main
   [& args]
-  (let [db     (nextplace.db/open-db "data/nextplace.db")
-        schema (schema/load-schema db)
-        server (create-server {:schema schema
-                               :port   8888})]
+  (let [db               (nextplace.db/open-db "data/nextplace.db")
+        email-config     {:provider :postmark
+                          :api-key  (get (System/getenv) "POSTMARK_API_KEY")
+                          :from     "hello@nextplace.app"}
+        auth-config      {:token-ttl-minutes 15
+                          :session-ttl-days  7}
+        schema-compiled  (schema/load-schema db email-config auth-config)
+        schema-component {:compiled-schema schema-compiled
+                          :email           email-config
+                          :auth            auth-config
+                          :base-url        (get (System/getenv) "BASE_URL" "http://localhost:8888")}
+        server           (create-server {:schema schema-component
+                                         :port   8888})]
     (println "GraphQL server running on http://localhost:8888/graphql")
     @(promise)))

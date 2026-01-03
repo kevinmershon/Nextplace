@@ -74,27 +74,64 @@ The project uses Clojure deps.edn with multiple build targets for code isolation
 - **Code Formatting:** cljfmt with custom alignment rules
 - **REPL:** Integrant REPL for component lifecycle
 - **IDE Integration:** Claude MCP server via nREPL
+- **Console System:** Namespace-based REPL consoles for database interrogation and admin tasks
 
 ## Component Lifecycle
 
 Components are managed by Integrant with dependencies declared in `config.edn`:
 
 1. `:nextplace/db` - RocksDB database connection
-2. `:nextplace/schema` - GraphQL schema (depends on db)
-3. `:nextplace/server` - HTTP server (depends on schema)
+2. `:nextplace/redis` - Redis connection for geospatial indexing
+3. `:nextplace/email` - Email service (Postmark) for magic links
+4. `:nextplace/interfaces` - External interface configurations (NWS, Overpass)
+5. `:nextplace/auth` - Authentication configuration (token TTL, session TTL)
+6. `:nextplace/schema` - GraphQL schema (depends on db, redis, email, interfaces, auth)
+7. `:nextplace/server` - HTTP server (depends on schema)
 
 Components start in order and halt in reverse order.
 
 Example configuration:
 ```clojure
 {:nextplace/db     {:path "data/nextplace.db"}
- :nextplace/schema {:db #ig/ref :nextplace/db}
+ :nextplace/redis  {:uri "redis://localhost:6379"}
+ :nextplace/email  {:provider :postmark
+                    :from     "hello@nextplace.app"}
+ :nextplace/interfaces
+ {:nws      {:base-url "https://api.weather.gov"}
+  :overpass {:base-url "https://overpass-api.de/api/interpreter"}}
+ :nextplace/auth   {:token-ttl-minutes 15
+                    :session-ttl-days  7}
+ :nextplace/schema {:db         #ig/ref :nextplace/db
+                    :redis      #ig/ref :nextplace/redis
+                    :email      #ig/ref :nextplace/email
+                    :interfaces #ig/ref :nextplace/interfaces
+                    :auth       #ig/ref :nextplace/auth}
  :nextplace/server {:schema #ig/ref :nextplace/schema
                     :port   8888
                     :env    :dev}}
 ```
 
 ## Development Workflow
+
+### Prerequisites
+
+1. **Redis** - Required for geospatial indexing and caching:
+```bash
+docker run -d -p 6379:6379 --name nextplace-redis redis:latest
+```
+
+2. **Environment Variables** - Copy `.env.example` to `.env` and configure:
+```bash
+cd web
+cp .env.example .env
+# Edit .env with your API keys
+```
+
+Required environment variables:
+- `POSTMARK_API_KEY` - For sending magic link emails
+- `JWT_SECRET` - 256-bit secret for JWT signing (generate with `openssl rand -hex 32`)
+- `BASE_URL` - Base URL for magic link generation (default: `http://localhost:8888`)
+- `REDIS_URL` - Redis connection URL (default: `redis://localhost:6379`)
 
 ### Quick Start
 
@@ -107,6 +144,19 @@ clojure -M:dev
 (go)    # Start server and initialize components
 (halt)  # Stop server and cleanup components
 (reset) # Reload code and restart
+
+# Console commands:
+(commands)           # List available commands
+(select :rocksdb)    # Enter RocksDB console
+  # Now in nextplace.console.rocksdb namespace
+  (commands)         # List RocksDB console commands
+  (list-keys)        # List all keys
+  (list-keys "user:") # List keys with prefix
+  (get-value "user:test@example.com") # Get value
+  (scan "auth_token:") # Scan and show entries
+  (count-keys)       # Count all keys
+  (stats)            # Show database statistics
+  (back)             # Return to user namespace
 ```
 
 ### Makefile Commands
@@ -156,6 +206,44 @@ GraphQL resolvers use multimethod pattern in `resolvers.clj`:
 - `resolve-query` - Query resolvers
 - `resolve-mutation` - Mutation resolvers (with DB access)
 - `resolver-map` - Maps GraphQL field names to resolver functions
+
+Resolvers are organized by domain in subdirectories:
+- `resolvers/queries/` - Query resolver implementations by domain
+  - `suggestion.clj`, `weather.clj`, `social.clj`, `user.clj`, `experience.clj`
+- `resolvers/mutations/` - Mutation resolver implementations by domain
+  - `auth.clj`, `suggestion.clj`, `social.clj`, `experience.clj`
+
+## Console System
+
+The console system provides namespace-based REPL interfaces for database interrogation and administrative tasks.
+
+### Architecture
+- **Console Registry** (`nextplace.console.util`) - Manages available consoles and provides introspection utilities
+- **Console Namespaces** - Each console is a full Clojure namespace with public functions
+- **Navigation** - Switch between consoles using `(select :console-kw)` and return with `(back)`
+- **Self-Documenting** - Each console implements `(commands)` to list available operations
+
+### Available Consoles
+- **:rocksdb** (`nextplace.console.rocksdb`) - RocksDB database operations
+
+### Usage Pattern
+```clojure
+;; From user namespace
+(select :rocksdb)              ; Enter RocksDB console
+
+;; Now in nextplace.console.rocksdb namespace
+(commands)                     ; See available commands
+(list-keys "user:")            ; Call functions directly
+(get-value "user:foo@bar.com") ; No namespace prefix needed
+(back)                         ; Return to user namespace
+```
+
+### Adding New Consoles
+1. Create namespace under `src/dev/nextplace/console/`
+2. Implement public functions for console operations
+3. Implement `(commands)` function using `console.util/list-public-vars`
+4. Add `(set-top-level-ns! [ns-sym])` and `(back)` for navigation
+5. Register in `nextplace.console.util/available-consoles`
 
 ## Database Layer
 
@@ -211,9 +299,28 @@ Server runs on port 8888 by default. Database and schema initialize automaticall
 - Ring middleware for content-type handling
 - Reitit for efficient routing
 
-## Security
+## Authentication
 
+### Magic Link Flow
+1. User requests authentication with email via `user_auth_request` mutation
+2. System generates cryptographically random 256-bit token (15-minute TTL)
+3. Token stored in RocksDB with email and expiration
+4. Magic link email sent via Postmark containing authentication URL
+5. User clicks link, token verified via `user_auth_verify` mutation
+6. Token marked as used (single-use only)
+7. JWT session token created (7-day TTL) and returned to client
+8. User created automatically if doesn't exist
+
+### JWT Sessions
+- HS256 signing algorithm with JWT_SECRET from environment
+- 7-day expiration (configurable via `session-ttl-days`)
+- Contains user email and ID in claims
+- Client includes session token in GraphQL context for authenticated operations
+
+### Security Considerations
+- Tokens are single-use and expire after 15 minutes
+- Email-based passwordless authentication reduces credential exposure
+- JWT secrets must be 256-bit minimum
 - Input validation on all GraphQL mutations
-- Email format validation for user signup
-- No authentication/authorization in MVP (waitlist only)
+- Email format validation for user operations
 - Database path configurable for environment isolation
