@@ -72,6 +72,14 @@ Eliminate patterns that consume tokens without advancing implementation:
 
 **Architecture Reference**: See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed project structure, component organization, and technology stack specifics.
 
+**User Stories Reference**: See [USER-STORIES.md](USER-STORIES.md) for approved user experience stories and core UX constraints.
+
+**Project Plan Reference**: See [PROJECT-PLAN.md](PROJECT-PLAN.md) for product vision, core flows, and permanent constraints.
+
+**Considerations Reference**: See [CONSIDERATIONS.md](CONSIDERATIONS.md) for design philosophy, gating logic, and guiding principles.
+
+**Implementation Status**: See [IMPLEMENTATION-STATUS.md](IMPLEMENTATION-STATUS.md) for current progress and technical decisions.
+
 ### File Structure & Boundaries
 **SAFE TO MODIFY**:
 - Source directories - Application implementation code

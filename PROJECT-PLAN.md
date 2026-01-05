@@ -90,18 +90,29 @@ Enable low-pressure, high-integrity social interaction anchored to real activiti
 - No chat-first interaction; showing up is the point
 
 ### Event Model
-- Events have limited slots
+- Events have limited slots (2-6 people, host chooses, default 6 including host)
+- Events have explicit duration (start time and end time)
 - Users opt in explicitly
 - Group participation during the activity is voluntary
 - Presence is mandatory once committed
 - Events cannot be created or joined less than 4 hours from current time
 - Events cannot be created or joined more than 2 days from current time
+- Minimum viable group: 1 person joining is enough for event to proceed
+- If no one joins by 4 hours before start, system suggests host go solo instead
 
 ### Event Creation
 - No general "browse events" page
-- Users can browse locations page
+- Users browse locations via "Find My Vibe" page (weather + location filters)
 - "Check it out" button on location creates new event hosted by that user
 - System-generated suggestions also create events when accepted
+- Host can add a note to the event (e.g., "Bring water, trail is dry")
+
+### Event Cancellation
+- No cancel option once attendees have committed
+- Host can only cancel if zero attendees (still a solo event)
+- If host no-shows with committed attendees, they receive poor ratings implicitly
+- Good communication about emergencies leads to understanding ratings from attendees
+- Attendees may informally elect a new host if original host communicates absence
 
 ### Commitment Limits
 - Users can only commit to maximum 2 events at a time
@@ -109,20 +120,27 @@ Enable low-pressure, high-integrity social interaction anchored to real activiti
 - Enforces intentionality and reduces flaking
 
 ### Ratings and Reputation
+- Rating prompt appears 1 hour after event end time
 - Users rate:
-  - Overall experience
+  - Overall experience (required for every event, even same location on different days)
   - Each participant individually (pairwise ratings)
-- Low pairwise ratings result in soft blacklisting (no future pairing)
-- Blacklisting is bidirectional and transitive:
+  - Optional: short note (<140 chars) to admins if someone was problematic
+- 1-star rating triggers blacklisting (only 1-star, not 2)
+- Blacklisting is bidirectional and invisible:
   - If User A blacklists User B, neither can see each other's events
-  - If User A joins Event X, User B cannot see or join Event X
-  - If User A hosts Event Y, User B cannot see or join Event Y
+  - Events the other person joins simply don't appear - no indication why
+  - Events the other person hosts are invisible
 - Ratings are never exposed to other users
+
+### Arrival Notifications
+- Geofence triggers when attendee approaches event location
+- Host receives notification: "[Name] is arriving shortly"
+- Helps host know to wait at meeting point
 
 ### Commitment Enforcement
 - No-show results in automatic zero rating
-- Late arrival caps maximum possible rating
-- Early departure requires a private reason
+- Late arrival: other attendees may rate accordingly (no automatic penalty)
+- Early departure: other attendees may rate accordingly (no system intervention)
 
 ### Matching Philosophy
 - Avoid interest-based matching in MVP
@@ -139,6 +157,11 @@ Enable low-pressure, high-integrity social interaction anchored to real activiti
   - Post-event rating screens
 - No public profiles or bios
 
+### Event Chat (Post-MVP)
+- Chat unlocks for an event after user commits to attending
+- Chat closes 24 hours after event end time
+- No chat before commitment - showing up is the point
+
 ---
 
 ## Integrity Principles
@@ -146,6 +169,18 @@ Enable low-pressure, high-integrity social interaction anchored to real activiti
 - Reputation is derived from behavior, not self-description
 - Blacklisting is routing logic, not feedback
 - No public shaming, explanations, or score exposure
+
+---
+
+## User Settings
+
+Minimal user configuration - system infers most preferences from behavior.
+
+**MVP Settings:**
+- **Has a dog** - Boolean checkbox; when enabled, all suggestions filter to dog-friendly locations
+
+**Post-MVP Settings:**
+- Google Calendar integration for implicit availability detection
 
 ---
 
@@ -221,20 +256,21 @@ Background system to encourage consistent participation:
 Unlocked after positive social interactions:
 
 **Friend Requests:**
-- Prompted after rating another participant 5/5
-- Opt-in friend request system
+- Triggered only after mutual 5-star ratings (both users rate each other 5/5)
+- Both users are asked if they want to be friends
+- Friendship requires both users to accept
 - No user browsing or profile discovery outside events
 
 **Friend Management:**
 - Friends list for managing connections
 - Ability to remove friends
-- Optional notifications when friends join/host events
-- Enables spontaneous "tag along" behavior
+- Friends' events bubble up in suggestions (gentle priority, not exclusive)
+- When a friend hosts or joins an event, user sees their name prominently
 
 **Privacy Maintained:**
 - Friends cannot browse each other's profiles
 - No bio, interest lists, or social feed
-- Friendship enables notifications, not surveillance
+- Friendship enables visibility priority, not surveillance
 
 ---
 

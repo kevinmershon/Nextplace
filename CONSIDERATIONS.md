@@ -88,9 +88,10 @@ This allows the system to understand users without forcing them to self-describe
    - Clear framing: where, why, how long
    - Accept / regenerate / decline
 
-2. **Today Map (Optional)**
-   - Minimal geographic context
-   - Emphasis on distance and direction, not exploration
+2. **Find My Vibe (Location Browse)**
+   - Weather-filtered location cards
+   - Emphasis on distance and conditions, not exploration
+   - "Check it out" creates hosted event
 
 3. **Commitment Screen**
    - Clear expectations
@@ -98,9 +99,10 @@ This allows the system to understand users without forcing them to self-describe
    - Explicit acknowledgement of commitment
 
 4. **Reflection Prompt**
-   - Appears post-experience
-   - Short, optional free-text
-   - Ratings captured here
+   - Appears 1 hour after event end time
+   - Experience rating required (even for same location on different days)
+   - Individual ratings for each attendee required
+   - Optional: short admin note (<140 chars) if someone was problematic
 
 5. **History / Memory**
    - Personal log of places and experiences
@@ -181,22 +183,26 @@ The goal is seriousness, not punishment.
 
 ---
 
-## Blacklisting: Bidirectional and Transitive
+## Blacklisting: Bidirectional and Invisible
+
+### Trigger
+- Only a 1-star rating triggers blacklisting (not 2-star)
 
 ### Core Principle
-If User A blacklists User B (via low rating), protection is bidirectional:
-- User A cannot see User B's events
-- User B cannot see User A's events
-- If User A joins Event X, User B is ineligible to see or join Event X
-- If User B hosts Event Y, User A cannot see or join Event Y
+If User A blacklists User B (via 1-star rating), protection is bidirectional and silent:
+- User A cannot see User B's events - they simply don't appear
+- User B cannot see User A's events - they simply don't appear
+- No indication to either user that filtering occurred
+- Events the other person joins become invisible, not "blocked"
 
 ### Rationale
 - Protects both parties from uncomfortable re-encounters
 - Prevents toxic users from targeting specific individuals
 - Combined with 2-event limit, prevents one bad actor from blocking system participation
+- Silence prevents gaming or retaliation
 
 ### Implementation Note
-Blacklisting operates at the event visibility and eligibility layer, not at the user discovery layer (since there is no user browsing in MVP).
+Blacklisting operates at the event visibility layer. Events are filtered out before display - users never know an event existed that they can't see.
 
 ---
 
@@ -233,19 +239,21 @@ Instead of browsing events, users browse locations with weather context.
 ## Friend System (Post-MVP)
 
 ### Entry Point
-- After rating another participant 5/5, user prompted to send friend request
-- Opt-in only, no automatic friending
+- Triggered only after mutual 5-star ratings (both users rate each other 5/5)
+- Both users are then asked if they want to be friends
+- Friendship requires both users to accept - not automatic
 
 ### Friend Capabilities
 - View friends list
 - Remove friends
-- Optional notifications when friends join/host events (enables "tag along")
+- Friends' events bubble up in suggestions (gentle priority)
+- See friend's name prominently when they host or join an event
 
 ### Privacy Boundaries Maintained
 - No user profile browsing
 - No bios, interest lists, or social feeds
 - Cannot discover friends outside of event participation
-- Friendship enables notifications, not surveillance
+- Friendship enables visibility priority, not surveillance
 
 ### Why Post-MVP
 - Adds complexity to notification system

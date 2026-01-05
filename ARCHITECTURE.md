@@ -360,6 +360,59 @@ func openInMaps(latitude: Double, longitude: Double, name: String) {
 
 ---
 
+## External API Integration Patterns
+
+### HTTP Client Usage
+All external API calls use `clj-http` with consistent patterns:
+- Timeout configuration for reliability
+- JSON parsing with keyword keys
+- Error handling with meaningful messages
+- Rate limiting awareness
+
+### Configured External Services
+External service configuration lives in `:nextplace/interfaces` component:
+- **NWS (National Weather Service)** - Weather data, no API key required
+- **Overpass API** - OpenStreetMap queries for parks, amenities
+- **Google Maps** - Geocoding only (env: `GOOGLE_MAPS_API_KEY`)
+
+### Web Search Integration
+For discovery of events, volunteer opportunities, and community activities:
+- Agentic web search rather than platform-specific APIs
+- No API keys required for Eventbrite, Meetup, etc.
+- System discovers sources automatically - no user search interface
+
+## Discovery System
+
+### Philosophy
+Users don't search or browse. The system curates what to do and when based on:
+- Current GPS location from native app
+- Opportunities within reasonable distance
+- Weather and timing considerations
+- Low-barrier activities (no equipment, no skills required)
+
+### Core UX Constraints
+- **4 hours minimum notice** - Never suggest something starting sooner
+- **Named social proof** - "Sarah is going" not "12 others going"
+- **Binary commitment** - Commit or don't, no snooze/defer options
+- **Zero user input** - GPS provides location, system handles the rest
+
+### Availability Model
+- **MVP**: Assume user available 10am-10pm daily
+- **Post-MVP**: Google Calendar integration for implicit availability detection
+
+### Admin Discovery Console
+Developers use the discovery console to populate opportunity data:
+- Input: zipcode or city name
+- Output: Structured opportunity data for storage
+- Automatic categorization and deduplication
+
+### Opportunity Types (System-Curated)
+1. **Volunteer** - Nonprofit service opportunities
+2. **Park cleanup** - Scheduled outdoor community service
+3. **Animal welfare** - Rescue center and shelter help
+4. **Walking groups** - Low-barrier social outdoor activities
+5. **Community events** - Open streets, festivals, city activities
+
 ## Performance Considerations
 
 - RocksDB provides fast embedded storage
