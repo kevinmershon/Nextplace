@@ -2,7 +2,8 @@
   (:require [clojure.string :as str]))
 
 (def ^:private available-consoles
-  {:rocksdb 'nextplace.console.rocksdb})
+  {:rocksdb   'nextplace.console.rocksdb
+   :discovery 'nextplace.console.discovery})
 
 (defn list-consoles
   []

@@ -45,7 +45,7 @@ Visit [http://localhost:8888](http://localhost:8888) to join the waitlist.
 
 **Current Status:** MVP backend complete with authentication. Android app initialized.
 
-**Architecture Note:** No in-app map rendering. Backend uses Google Maps API for geocoding/place lookups only. Mobile apps display location info and open coordinates in device's native map app via deep links.
+**Architecture Note:** No in-app map rendering. Backend uses OSM Nominatim for geocoding (free, no API key). Mobile apps display location info and open coordinates in device's native map app via deep links.
 
 ---
 

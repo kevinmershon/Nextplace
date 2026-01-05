@@ -315,7 +315,7 @@ Server runs on port 8888 by default. Database and schema initialize automaticall
 - ❌ `map_image_url` or similar fields in GraphQL schema
 
 **Backend:**
-- Google Maps API key used for geocoding and place lookups only
+- Geocoding via OSM Nominatim (free, no API key required)
 - Returns location data: coordinates, name, address
 - No map image generation
 
@@ -373,7 +373,7 @@ All external API calls use `clj-http` with consistent patterns:
 External service configuration lives in `:nextplace/interfaces` component:
 - **NWS (National Weather Service)** - Weather data, no API key required
 - **Overpass API** - OpenStreetMap queries for parks, amenities
-- **Google Maps** - Geocoding only (env: `GOOGLE_MAPS_API_KEY`)
+- **Nominatim** - OpenStreetMap geocoding, no API key required (US-biased for MVP)
 
 ### Web Search Integration
 For discovery of events, volunteer opportunities, and community activities:

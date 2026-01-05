@@ -307,7 +307,7 @@ These features violate core product principles: spontaneity over planning, actio
 #### What IS Allowed
 - ✅ **Display location data as text** (name, address, coordinates, distance)
 - ✅ **"Open in Maps" button** that deep links to native map app
-- ✅ **Backend Google Maps API usage** for geocoding and place lookups ONLY
+- ✅ **Backend geocoding via OSM Nominatim** (free, no API key required)
 - ✅ **Storing/returning coordinates** for deep linking
 
 #### Implementation Pattern
