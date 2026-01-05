@@ -22,7 +22,8 @@
          buddy/buddy-sign               {:mvn/version "3.5.351"}
          buddy/buddy-core               {:mvn/version "1.11.423"}
          clj-http/clj-http              {:mvn/version "3.13.0"}
-         clj-time/clj-time              {:mvn/version "0.15.2"}}
+         clj-time/clj-time              {:mvn/version "0.15.2"}
+         diehard/diehard                {:mvn/version "0.11.12"}}
  :aliases
  {:dev  {:extra-paths ["src/dev"]
          :extra-deps  {org.clojure/tools.namespace {:mvn/version "1.5.0"}

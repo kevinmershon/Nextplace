@@ -12,6 +12,8 @@
  :nextplace/auth {:token-ttl-minutes 15
                   :session-ttl-days  7}
 
+ :nextplace/discovery {:db #ig/ref :nextplace/db}
+
  :nextplace/schema {:db         #ig/ref :nextplace/db
                     :redis      #ig/ref :nextplace/redis
                     :email      #ig/ref :nextplace/email

@@ -56,3 +56,20 @@
       (do
         (log/warn "Invalid or expired auth token" {:token token})
         (throw (ex-info "Invalid or expired authentication token" {:token token}))))))
+
+(defn update-profile
+  "Update user profile fields like name and gender."
+  [db context args value]
+  ;; TODO: Get current user from session in context
+  ;; For now, require email in context or throw
+  (let [;; Placeholder - get user email from session when auth is wired up
+        user-email "placeholder@example.com"
+        user-key   (str "user:" user-email)
+        user-data  (db/get-value db user-key)]
+    (if user-data
+      (let [updated-user (cond-> user-data
+                           (:name args) (assoc :name (:name args))
+                           (:gender args) (assoc :gender (:gender args)))]
+        (db/put-value db user-key updated-user)
+        updated-user)
+      (throw (ex-info "User not found" {:type :not-found})))))

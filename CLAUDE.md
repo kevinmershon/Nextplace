@@ -70,6 +70,8 @@ Eliminate patterns that consume tokens without advancing implementation:
 
 ## PROJECT-SPECIFIC GUIDELINES
 
+**Build System**: This project uses a single Makefile at the repository root only. Do not create Makefiles in subdirectories. All targets use namespace prefixes (e.g., `clj/test`, `clj/format`).
+
 **Architecture Reference**: See [ARCHITECTURE.md](ARCHITECTURE.md) for detailed project structure, component organization, and technology stack specifics.
 
 **User Stories Reference**: See [USER-STORIES.md](USER-STORIES.md) for approved user experience stories and core UX constraints.
@@ -101,6 +103,12 @@ Eliminate patterns that consume tokens without advancing implementation:
 - Follow language-specific standards (Clojure: kebab-case for symbols/variables, snake_case for filenames; JavaScript: camelCase)
 - Use descriptive, intention-revealing names
 - Namespace organization reflects functional domains
+
+**Clojure Function Signatures**:
+- Arguments ordered by descending complexity/requiredness (most required first)
+- System dependencies (db, config, context) precede domain data
+- Example: `(defn find-venues [db-conn geo])` not `(defn find-venues [geo db-conn])`
+- Multi-arity functions: 1-arity convenience wrappers call full-arity with defaults
 
 **Architecture Patterns**:
 - Component lifecycle management via dependency injection framework

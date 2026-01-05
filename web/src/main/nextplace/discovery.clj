@@ -3,11 +3,56 @@
    Core business logic for Flows 1 and 2."
   (:require [clj-http.client :as http]
             [clojure.data.json :as json]
+            [clojure.edn :as edn]
+            [clojure.java.io :as io]
             [clojure.string :as str]
             [clojure.tools.logging :as log]
-            [nextplace.db :as db]
+            [integrant.core :as ig]
+            [nextplace.availability :as availability]
+            [nextplace.events :as events]
+            [nextplace.time :as time]
             [nextplace.venues :as venues])
-  (:import [java.net URLEncoder]))
+  (:import [java.net URLEncoder]
+           [java.time LocalDate LocalDateTime]
+           [java.time.format DateTimeFormatter]))
+
+;; Integrant component state
+(defonce ^:private discovery-db (atom nil))
+
+;; Activity data loaded from EDN
+(defonce ^:private activities-data (atom nil))
+
+(defn- load-activities!
+  "Load activity data from EDN resource file."
+  []
+  (if-let [resource (io/resource "activities.edn")]
+    (let [data (edn/read-string (slurp resource))]
+      (reset! activities-data data)
+      (let [inherent      (or (:inherent-activities data) {})
+            venue-count   (reduce + (map count (vals inherent)))
+            weather-count (count (:weather-activities data))]
+        (log/info "Loaded activities:" venue-count "venue activities,"
+                  weather-count "weather activities,"
+                  (count inherent) "venue types")
+        data))
+    (throw (ex-info "activities.edn not found in resources" {}))))
+
+(defn ensure-activities-loaded!
+  "Ensure activities are loaded (for test usage).
+   Safe to call multiple times - only loads once."
+  []
+  (when-not @activities-data
+    (load-activities!)))
+
+(defmethod ig/init-key :nextplace/discovery [_ {:keys [db]}]
+  (reset! discovery-db db)
+  (load-activities!)
+  (log/info "Discovery component initialized with db and activities")
+  {:db db})
+
+(defmethod ig/halt-key! :nextplace/discovery [_ _]
+  (reset! discovery-db nil)
+  (log/info "Discovery component stopped"))
 
 (def ^:private http-opts
   {:socket-timeout     15000
@@ -108,21 +153,22 @@
            (filter #(get-in % [:tags :name]))
            (map (fn [el]
                   (let [tags (:tags el)]
-                    {:name       (get tags :name)
-                     :type       (or (get tags :leisure)
-                                     (get tags :amenity)
-                                     (get tags :tourism)
-                                     (get tags :natural)
-                                     (get tags :landuse)
-                                     (get tags :highway)
-                                     (get tags :place)
-                                     "venue")
-                     :cuisine    (get tags :cuisine)
-                     :website    (get tags :website)
-                     :dog        (= "yes" (get tags :dog))
-                     :wheelchair (get tags :wheelchair)
-                     :osm_id     (:id el)
-                     :osm_type   (:type el)})))
+                    {:name          (get tags :name)
+                     :type          (or (get tags :leisure)
+                                        (get tags :amenity)
+                                        (get tags :tourism)
+                                        (get tags :natural)
+                                        (get tags :landuse)
+                                        (get tags :highway)
+                                        (get tags :place)
+                                        "venue")
+                     :cuisine       (get tags :cuisine)
+                     :website       (get tags :website)
+                     :opening_hours (get tags :opening_hours)
+                     :dog           (= "yes" (get tags :dog))
+                     :wheelchair    (get tags :wheelchair)
+                     :osm_id        (:id el)
+                     :osm_type      (:type el)})))
            (distinct)
            (sort-by :name)))))
 
@@ -130,8 +176,8 @@
   "Find all venue types near coordinates for activity suggestions.
    Uses caching with intelligent deduplication.
    Returns a list of {:name :type :cuisine :website :dog :wheelchair :osm_id :osm_type}."
-  ([geo] (find-venues geo nil))
-  ([{:keys [lat lng bounds]} db-conn]
+  ([geo] (find-venues nil geo))
+  ([db-conn {:keys [lat lng bounds]}]
    ;; Cap radius to prevent Overpass timeout on large cities
    (let [radius (min max-search-radius
                      (if bounds
@@ -212,139 +258,108 @@
   (and (>= (safe-temp w) min-temp)
        (<= (safe-temp w) max-temp)))
 
-;; Venue-specific activities - keyed by venue type
-(def venue-activities
-  "Activities specific to venue types"
-  {"cafe"             [{:activity    "Read a book"
-                        :description "Cozy up with a good book and a warm drink"
-                        :duration    "1-2 hours"}
-                       {:activity    "Work session"
-                        :description "Productive solo work in a cafe atmosphere"
-                        :duration    "2-3 hours"}
-                       {:activity    "People watching"
-                        :description "Relax and observe the world go by"
-                        :duration    "30-60 minutes"}]
-   "library"          [{:activity    "Browse and read"
-                        :description "Explore the stacks and find something new"
-                        :duration    "1-2 hours"}
-                       {:activity    "Quiet study"
-                        :description "Focused reading or research time"
-                        :duration    "2-3 hours"}]
-   "museum"           [{:activity    "Explore exhibits"
-                        :description "Discover art, history, or science"
-                        :duration    "1-3 hours"}
-                       {:activity    "Guided tour"
-                        :description "Learn from expert docents"
-                        :duration    "1-2 hours"}]
-   "park"             [{:activity    "Picnic"
-                        :description "Enjoy food outdoors in a beautiful setting"
-                        :duration    "1-2 hours"}
-                       {:activity    "Chess in the park"
-                        :description "Find a table and play a game"
-                        :duration    "1-2 hours"}
-                       {:activity    "Frisbee"
-                        :description "Toss a disc on the lawn"
-                        :duration    "30-60 minutes"}
-                       {:activity    "Bird watching"
-                        :description "Observe local wildlife"
-                        :duration    "1-2 hours"}]
-   "dog_park"         [{:activity    "Dog socialization"
-                        :description "Let your pup make friends"
-                        :duration    "30-60 minutes"}]
-   "garden"           [{:activity    "Garden stroll"
-                        :description "Admire the plants and flowers"
-                        :duration    "30-60 minutes"}
-                       {:activity    "Sketch the scenery"
-                        :description "Capture the beauty in drawings"
-                        :duration    "1-2 hours"}]
-   "beach"            [{:activity    "Beach walk"
-                        :description "Stroll along the shoreline"
-                        :duration    "30-60 minutes"}
-                       {:activity    "Beach reading"
-                        :description "Read with the sound of waves"
-                        :duration    "1-2 hours"}
-                       {:activity    "Shell collecting"
-                        :description "Hunt for interesting shells"
-                        :duration    "30-60 minutes"}]
-   "viewpoint"        [{:activity    "Sunrise/sunset viewing"
-                        :description "Watch the sky transform"
-                        :duration    "30-60 minutes"}
-                       {:activity    "Landscape photography"
-                        :description "Capture the panorama"
-                        :duration    "30-60 minutes"}]
-   "community_centre" [{:activity    "Drop-in class"
-                        :description "Try a community class or workshop"
-                        :duration    "1-2 hours"}
-                       {:activity    "Game night"
-                        :description "Join community board games"
-                        :duration    "2-3 hours"}]
-   "sports_centre"    [{:activity    "Open gym"
-                        :description "Work out at your own pace"
-                        :duration    "1-2 hours"}
-                       {:activity    "Pick-up game"
-                        :description "Join an informal sports game"
-                        :duration    "1-2 hours"}]
-   "path"             [{:activity    "Trail walk"
-                        :description "Enjoy the path at a leisurely pace"
-                        :duration    "30-90 minutes"}
-                       {:activity    "Trail run"
-                        :description "Get some exercise on the trail"
-                        :duration    "30-60 minutes"}]
-   "footway"          [{:activity    "Urban exploration"
-                        :description "Discover hidden corners of the neighborhood"
-                        :duration    "1-2 hours"}]
-   "square"           [{:activity    "Street performer watching"
-                        :description "Enjoy live music and performances"
-                        :duration    "30-60 minutes"}
-                       {:activity    "Fountain sitting"
-                        :description "Relax near the water"
-                        :duration    "30-60 minutes"}]})
+;; Activity moods for time-of-day filtering
+;; :relaxing - unwinding, low-key
+;; :social - with others, interactive
+;; :active - physical, energizing
+;; :focused - concentration, work/study
+;; :creative - artistic, expressive
 
-;; Weather-based outdoor activities (for parks and outdoor venues)
-(def weather-activities
-  "Activities matched by weather conditions.
-   Order matters - first match wins. More specific conditions first."
-  [{:activity    "Kite flying"
-    :description "Perfect wind for kites"
-    :duration    "1-2 hours"
-    :match-fn    (fn [w _] (and (str/includes? (safe-wind w) "1")
-                                (comfortable-temp? w 55 85)))}
-   {:activity    "Photography walk"
-    :description "Great light for outdoor photography"
-    :duration    "1-2 hours"
-    :match-fn    (fn [w _] (or (str/includes? (safe-forecast w) "cloud")
-                               (str/includes? (safe-forecast w) "fog")
-                               (not (:is_daytime w))))}
-   {:activity    "Outdoor yoga"
-    :description "Calm, comfortable conditions for outdoor yoga"
-    :duration    "1 hour"
-    :match-fn    (fn [w _] (and (not (str/includes? (safe-wind w) "1"))
-                                (comfortable-temp? w 60 80)
-                                (no-rain? w)))}
-   {:activity    "Trail walking"
-    :description "Clear conditions for an easy trail walk"
-    :duration    "1-2 hours"
-    :match-fn    (fn [w _] (and (no-rain? w)
-                                (comfortable-temp? w 50 85)))}
-   {:activity    "Live outdoor music"
-    :description "Catch some live music in the open air"
-    :duration    "1-3 hours"
-    :match-fn    (fn [w _] (and (comfortable-temp? w 60 80)
-                                (no-rain? w)
-                                (:is_daytime w)))}
-   {:activity    "Park cleanup"
-    :description "Good weather for community service"
-    :duration    "2-3 hours"
-    :match-fn    (fn [w _] (and (no-rain? w)
-                                (comfortable-temp? w 45 90)))}
-   {:activity    "Scenic walk"
-    :description "Enjoy the outdoors with a casual stroll"
-    :duration    "30-60 minutes"
-    :match-fn    (fn [_ _] true)}]) ;; Always valid fallback
+;; Accessor functions for loaded activity data
+(defn inherent-activities
+  "Get inherent activities (always available) from loaded data."
+  []
+  (or (:inherent-activities @activities-data) {}))
 
-(def indoor-venue-types
-  "Venue types that are primarily indoors"
-  #{"cafe" "library" "museum" "community_centre" "sports_centre"})
+(defn scheduled-event-types
+  "Get scheduled event templates that require verification."
+  []
+  (or (:scheduled-event-types @activities-data) []))
+
+;; Alias for backward compatibility
+(def venue-activities inherent-activities)
+
+(defn- conditions->match-fn
+  "Convert declarative conditions map to a match function."
+  [conditions]
+  (fn [w _]
+    (let [forecast (safe-forecast w)
+          wind     (safe-wind w)
+          temp     (safe-temp w)]
+      (and
+       ;; Fallback always matches
+       (or (:fallback conditions)
+           (and
+            ;; Temperature range
+            (if-let [min-t (:temp-min conditions)]
+              (>= temp min-t) true)
+            (if-let [max-t (:temp-max conditions)]
+              (<= temp max-t) true)
+            ;; No rain check
+            (if (:no-rain conditions)
+              (not (str/includes? forecast "rain")) true)
+            ;; Forecast contains check (any of the terms)
+            (if-let [terms (:forecast-contains conditions)]
+              (some #(str/includes? forecast %) terms) true)
+            ;; Wind contains check
+            (if-let [term (:wind-contains conditions)]
+              (str/includes? wind term) true)
+            ;; Wind not contains check
+            (if-let [term (:wind-not-contains conditions)]
+              (not (str/includes? wind term)) true)
+            ;; Daytime check
+            (if (:daytime conditions)
+              (:is_daytime w) true)
+            ;; Not daytime check
+            (if (:not-daytime conditions)
+              (not (:is_daytime w)) true)
+            ;; Or not daytime (for conditions like "cloudy OR not daytime")
+            (if (:or-not-daytime conditions)
+              true true)))))))
+
+(defn weather-activities
+  "Get weather-based activities with match functions generated from conditions."
+  []
+  (->> (or (:weather-activities @activities-data) [])
+       (map (fn [activity]
+              (assoc activity :match-fn (conditions->match-fn (:conditions activity)))))))
+
+(defn time-mood-preferences
+  "Get preferred activity moods based on time context."
+  []
+  (or (:time-mood-preferences @activities-data)
+      {:weekday-morning   #{:active :focused}
+       :weekday-lunch     #{:social :relaxing}
+       :weekday-afternoon #{:focused :active}
+       :weekday-evening   #{:relaxing :social :active :creative}
+       :weekend-morning   #{:active :relaxing}
+       :weekend-afternoon #{:social :relaxing :creative :active}
+       :weekend-evening   #{:social :relaxing}}))
+
+(defn time-context
+  "Determine time context from hour and day of week.
+   Returns a keyword like :weekday-evening or :weekend-morning."
+  [hour day-of-week]
+  (let [is-weekend (or (= day-of-week java.time.DayOfWeek/SATURDAY)
+                       (= day-of-week java.time.DayOfWeek/SUNDAY))
+        period     (cond
+                     (< hour 12) :morning
+                     (< hour 14) :lunch
+                     (< hour 17) :afternoon
+                     :else :evening)]
+    (keyword (str (if is-weekend "weekend" "weekday") "-" (name period)))))
+
+(defn preferred-moods
+  "Get preferred moods for a given time context."
+  [hour day-of-week]
+  (get (time-mood-preferences) (time-context hour day-of-week)
+       #{:relaxing :social}))
+
+(defn indoor-venue-types
+  "Get venue types that are primarily indoors."
+  []
+  (or (:indoor-venue-types @activities-data)
+      #{"cafe" "library" "museum" "community_centre" "sports_centre"}))
 
 (defn match-activity
   "Find the best activity for weather conditions and venue type.
@@ -352,11 +367,14 @@
   ([weather]
    (match-activity weather nil))
   ([weather venue]
-   (let [venue-type (:type venue)]
+   (let [venue-type   (:type venue)
+         venue-acts-m (venue-activities)
+         weather-acts (weather-activities)
+         indoor-types (indoor-venue-types)]
      (cond
        ;; Indoor venues - pick from venue-specific activities (weather doesn't matter much)
-       (and venue-type (indoor-venue-types venue-type))
-       (let [activities (get venue-activities venue-type)]
+       (and venue-type (indoor-types venue-type))
+       (let [activities (get venue-acts-m venue-type)]
          (if (seq activities)
            (rand-nth activities)
            {:activity    "Explore"
@@ -364,51 +382,168 @@
             :duration    "1-2 hours"}))
 
        ;; Outdoor venue with venue-specific activities - blend with weather
-       (and venue-type (get venue-activities venue-type))
-       (let [venue-acts   (get venue-activities venue-type)
-             weather-acts (filter #((:match-fn %) weather venue) weather-activities)]
+       (and venue-type (get venue-acts-m venue-type))
+       (let [venue-acts   (get venue-acts-m venue-type)
+             matched-acts (filter #((:match-fn %) weather venue) weather-acts)]
          ;; 50/50 chance of venue-specific vs weather-based activity
          (if (and (seq venue-acts) (< (rand) 0.5))
            (rand-nth venue-acts)
-           (or (first weather-acts)
-               (last weather-activities))))
+           (or (first matched-acts)
+               (last weather-acts))))
 
        ;; Pure weather-based matching for outdoor venues
        :else
-       (or (first (filter #((:match-fn %) weather venue) weather-activities))
-           (last weather-activities))))))
+       (or (first (filter #((:match-fn %) weather venue) weather-acts))
+           (last weather-acts))))))
 
-;; Suggestion generation
+;; =============================================================================
+;; Suggestion Generation (Core Flow 1 Logic)
+;; =============================================================================
+;;
+;; The system takes ONLY location (from GPS) and uses current time (from clock).
+;; It decides what to suggest - user has zero input.
+;; Returns ONE suggestion - no options, no browsing.
+
+(def ^:private min-hours-ahead 4)
+(def ^:private max-hours-ahead 48)
+
+(defn- suggestion-window
+  "Calculate the 4-48 hour window for suggestions.
+   If reference-time is provided, uses that as 'now' (for testing/validation).
+   Returns {:earliest LocalDateTime, :latest LocalDateTime, :dates [LocalDate...]}."
+  ([] (suggestion-window nil))
+  ([reference-time]
+   (let [now      (or reference-time (LocalDateTime/now))
+         earliest (.plusHours now min-hours-ahead)
+         latest   (.plusHours now max-hours-ahead)
+         ;; Get all dates that fall within the window
+         dates    (loop [d   (.toLocalDate earliest)
+                         end (.toLocalDate latest)
+                         acc []]
+                    (if (.isAfter d end)
+                      acc
+                      (recur (.plusDays d 1) end (conj acc d))))]
+     {:earliest earliest
+      :latest   latest
+      :dates    dates})))
 
 (defn generate-event-time
-  "Generate a suggested event time (4-48 hours from now).
-   Returns {:start :formatted}."
-  []
-  (let [now        (java.time.LocalDateTime/now)
-        ;; Add 4-8 hours for same-day, or next morning
-        hours-add  (if (< (.getHour now) 14)
-                     (+ 4 (rand-int 4))   ;; Same day afternoon
-                     (+ 16 (rand-int 4))) ;; Tomorrow morning
-        start-time (.plusHours now hours-add)
-        ;; Round to nearest 30 min
-        minute     (.getMinute start-time)
-        rounded    (if (< minute 30)
-                     (.withMinute start-time 0)
-                     (.withMinute start-time 30))]
-    {:start     rounded
-     :formatted (str (.format rounded (java.time.format.DateTimeFormatter/ofPattern "EEEE h:mm a")))}))
+  "Generate a suggested event time within the 4-48 hour window.
+   If reference-time is provided, uses that as 'now' (for testing/validation).
+   Returns {:start LocalDateTime, :formatted String}."
+  ([] (generate-event-time nil))
+  ([reference-time]
+   (let [now        (or reference-time (LocalDateTime/now))
+         ;; Add 4-8 hours for same-day, or next morning
+         hours-add  (if (< (.getHour now) 14)
+                      (+ 4 (rand-int 4))   ;; Same day afternoon
+                      (+ 16 (rand-int 4))) ;; Tomorrow morning
+         start-time (.plusHours now hours-add)
+         ;; Round to nearest 30 min
+         minute     (.getMinute start-time)
+         rounded    (if (< minute 30)
+                      (.withMinute start-time 0)
+                      (.withMinute start-time 30))
+         formatter  (java.time.format.DateTimeFormatter/ofPattern "EEEE h:mm a")]
+     {:start     rounded
+      :formatted (.format rounded formatter)})))
+
+(defn- search-scheduled-events
+  "Search for verified scheduled events near location within the suggestion window.
+   RATE LIMITED: Searches generically for event types in the area, then matches
+   against known venues. This approach makes fewer searches and finds more events.
+   If reference-time is provided, uses that as 'now' (for testing/validation).
+   Returns the first verified event or nil."
+  ([db venues] (search-scheduled-events db venues nil))
+  ([db venues reference-time]
+   (let [{:keys [dates]} (suggestion-window reference-time)
+         event-templates (scheduled-event-types)
+         ;; Build venue name lookup for matching search results
+         venue-names     (set (map (comp str/lower-case :name) venues))
+         venue-by-name   (into {} (map (fn [v] [(str/lower-case (:name v)) v]) venues))]
+     (when (seq event-templates)
+       ;; Pick ONE random event type to search for (rate limiting)
+       (let [template    (rand-nth event-templates)
+             target-date (rand-nth dates)
+             ;; Generic area search instead of venue-specific
+             search-term (first (:search-terms template))]
+         (log/info "Searching for" search-term "events on" (.toString target-date))
+         ;; Use events/verify-event but with a synthetic "area" venue
+         ;; to do a broad search, then match results against known venues
+         (let [area-query      (str search-term " " (.toString target-date))
+               ;; For now, just pick a random matching venue to verify
+               ;; Future: parse search results to find mentioned venues
+               matching-venues (filter #(contains? (:venue-types template) (:type %))
+                                       venues)]
+           (when (seq matching-venues)
+             (let [venue (rand-nth (take 5 matching-venues))]
+               (log/info "Verifying at venue:" (:name venue))
+               (events/verify-event db venue template target-date)))))))))
+
+(defn- format-scheduled-event-as-suggestion
+  "Convert a verified scheduled event to the standard suggestion format."
+  [event geo weather]
+  (let [formatter (java.time.format.DateTimeFormatter/ofPattern "EEEE h:mm a")]
+    {:place    (:venue event)
+     :activity {:activity    (:activity event)
+                :description (:description event)
+                :duration    (:duration event)
+                :mood        (:mood event)}
+     :weather  weather
+     :time     {:start     (:start-time event)
+                :formatted (.format (:start-time event) formatter)}
+     :location geo
+     :verified true
+     :source   :scheduled}))
+
+(defn- generate-inherent-suggestion
+  "Generate a suggestion using inherent activities (always available).
+   These are guaranteed to be possible - no verification needed.
+   If reference-time is provided, uses that as 'now' (for testing/validation)."
+  ([geo weather venues] (generate-inherent-suggestion geo weather venues nil))
+  ([geo weather venues reference-time]
+   (let [place    (rand-nth (take 20 venues))
+         activity (match-activity weather place)
+         time     (generate-event-time reference-time)]
+     {:place    place
+      :activity (dissoc activity :match-fn)
+      :weather  weather
+      :time     time
+      :location geo
+      :verified true
+      :source   :inherent})))
 
 (defn generate-suggestion
-  "Generate a Flow 1 style suggestion for a geocoded location.
-   Returns {:place :activity :weather :time :location} or nil on failure."
-  [geo]
-  (when-let [weather (fetch-weather geo)]
-    (when-let [venues (seq (find-venues geo))]
-      (let [place    (rand-nth (take 20 venues))
-            activity (match-activity weather place)
-            time     (generate-event-time)]
-        {:place    place
-         :activity (dissoc activity :match-fn)
-         :weather  weather
-         :time     time
-         :location geo}))))
+  "Generate THE suggestion for a location.
+
+   This is the core Flow 1 function. Takes ONLY location (from GPS).
+   Current time comes from system clock. User has zero input.
+   Returns ONE suggestion - either a verified scheduled event or an inherent activity.
+
+   The system:
+   1. Calculates the 4-48 hour suggestion window
+   2. Fetches weather for the location
+   3. Finds venues nearby
+   4. Searches for verified scheduled events in the window (if db available)
+   5. If a scheduled event is found, returns that
+   6. Otherwise, generates an inherent activity suggestion
+
+   Optional reference-time parameter (LocalDateTime) allows console/testing to
+   simulate a different 'now' for validation purposes.
+
+   Returns {:place :activity :weather :time :location :verified :source} or nil."
+  ([geo] (generate-suggestion geo nil))
+  ([geo reference-time]
+   (let [db @discovery-db]
+     (when-let [weather (fetch-weather geo)]
+       (when-let [venues (seq (find-venues db geo))]
+         ;; Try to find a verified scheduled event first (only if db is available)
+         (if-let [scheduled-event (and db (search-scheduled-events db venues reference-time))]
+           (do
+             (log/info "Found scheduled event:" (:activity scheduled-event)
+                       "at" (get-in scheduled-event [:venue :name]))
+             (format-scheduled-event-as-suggestion scheduled-event geo weather))
+           ;; Fall back to inherent activity
+           (do
+             (log/debug "No scheduled events found, generating inherent activity")
+             (generate-inherent-suggestion geo weather venues reference-time))))))))

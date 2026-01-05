@@ -7,7 +7,7 @@ This document tracks current implementation progress, technical decisions, and c
 ## Current Status
 
 **Phase:** MVP Foundation - Authentication and Infrastructure
-**Last Updated:** 2026-01-03
+**Last Updated:** 2026-01-04
 
 ---
 
@@ -62,6 +62,30 @@ This document tracks current implementation progress, technical decisions, and c
 - `current_suggestion` - Get suggestion (stub)
 - `weather_escape` - Get weather escape (stub)
 - `available_social_events` - Get social events (stub)
+
+### ✅ Event Verification System
+**Status:** Complete
+
+- DuckDuckGo web search integration (no API key required)
+- Heuristic-based verification with confidence scoring
+- Contextual proximity analysis (venue + event + day must be connected)
+- Recurring pattern detection ("every Monday", "weekly", etc.)
+- Rate limiting (1 req/5sec) with exponential backoff retry
+- RocksDB caching with 6-hour TTL
+- Event time extraction from search results
+
+**Implementation Details:**
+- `nextplace.events` - Event verification service
+- `verify-event` - Main verification function with caching
+- `verify-event-heuristic` - Scoring and analysis logic
+- `score-venue-event-connection` - Venue-event proximity scoring
+- `score-day-event-connection` - Day-event proximity scoring with recurring bonus
+
+**Verified Event Types:**
+- Open mic nights
+- Trivia nights
+- Karaoke nights
+- (Extensible via event templates)
 
 ### ✅ Development Infrastructure
 **Status:** Complete

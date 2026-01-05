@@ -5,7 +5,15 @@
 
   :commitment_status
   {:description "Status of user commitment to an event"
-   :values      [:PENDING :COMMITTED :COMPLETED :NO_SHOW :LATE :EARLY_DEPARTURE]}}
+   :values      [:PENDING :COMMITTED :COMPLETED :NO_SHOW :LATE :EARLY_DEPARTURE]}
+
+  :gender
+  {:description "User gender identity"
+   :values      [:MAN :WOMAN :OTHER]}
+
+  :gender_restriction
+  {:description "Gender restriction for social events"
+   :values      [:ALL_WELCOME :MEN_ONLY :WOMEN_ONLY]}}
 
  :objects
  {:Location
@@ -95,6 +103,8 @@
                                            :description "ISO 8601 datetime when event was created"}
                  :host_user_id            {:type        (non-null ID)
                                            :description "User who created/hosts the event"}
+                 :gender_restriction      {:type        (non-null :gender_restriction)
+                                           :description "Gender restriction: ALL_WELCOME (default), MEN_ONLY, or WOMEN_ONLY"}
                  :max_participants        {:type (non-null Int)}
                  :participants            {:type (list :Participant)}
                  :available_slots         {:type (non-null Int)}
@@ -126,6 +136,8 @@
                  :name                        {:type (non-null String)}
                  :email                       {:type String}
                  :photo_url                   {:type String}
+                 :gender                      {:type        :gender
+                                               :description "User's gender identity (MAN, WOMAN, OTHER)"}
                  :flow3_unlocked              {:type        (non-null Boolean)
                                                :description "Whether user has access to social events"}
                  :completed_experiences_count {:type (non-null Int)}
@@ -227,7 +239,27 @@
   {:type        :AuthVerifyResult
    :description "Verify magic link token and create session"
    :args        {:token {:type (non-null String)}}
-   :resolve     :mutation/user-auth-verify}}
+   :resolve     :mutation/user-auth-verify}
+
+  :user_update_profile
+  {:type        :User
+   :description "Update user profile including gender"
+   :args        {:name   {:type String}
+                 :gender {:type :gender}}
+   :resolve     :mutation/user-update-profile}
+
+  :social_event_create
+  {:type        :SocialEvent
+   :description "Flow 3: Create a new social event"
+   :args        {:suggestion_id      {:type        (non-null ID)
+                                      :description "The suggestion to convert into a social event"}
+                 :max_participants   {:type          Int
+                                      :default-value 4
+                                      :description   "Maximum participants (2-6)"}
+                 :gender_restriction {:type          :gender_restriction
+                                      :default-value :ALL_WELCOME
+                                      :description   "Gender restriction for the event"}}
+   :resolve     :mutation/social-event-create}}
 
  :input-objects
  {:ParticipantRatingInput

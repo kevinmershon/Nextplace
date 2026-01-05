@@ -1,0 +1,867 @@
+;; Nextplace Activity Database
+;; Activities are split into two categories:
+;;
+;; 1. INHERENT ACTIVITIES - Always possible at a venue type during open hours
+;;    No verification needed beyond venue being open
+;;
+;; 2. SCHEDULED EVENTS - Require real-time verification before suggesting
+;;    System must confirm event is actually happening at specific date/time
+;;
+;; Moods: :relaxing, :social, :active, :focused, :creative
+
+{:inherent-activities
+ ;; Activities that are ALWAYS available at a venue type during operating hours
+ ;; These can be suggested without additional verification
+
+ {"cafe"
+  [{:activity    "Read a book"
+    :description "Cozy up with a good book and a warm drink"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "People watching"
+    :description "Relax and observe the world go by"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Catch up with a friend"
+    :description "Chat over coffee"
+    :duration    "1-2 hours"
+    :mood        :social}
+   {:activity    "Journal writing"
+    :description "Reflect on life with pen and paper"
+    :duration    "30-60 minutes"
+    :mood        :creative}
+   {:activity    "Sketch session"
+    :description "Draw the cafe scene or patrons"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Language study"
+    :description "Practice a new language with flashcards or an app"
+    :duration    "1 hour"
+    :mood        :focused}
+   {:activity    "Podcast listening"
+    :description "Catch up on your favorite shows"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Email catch-up"
+    :description "Clear out that inbox backlog"
+    :duration    "1 hour"
+    :mood        :focused}
+   {:activity    "Creative writing"
+    :description "Work on that story or blog post"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Coffee tasting"
+    :description "Try different roasts and origins"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Crossword puzzles"
+    :description "Exercise your brain with word games"
+    :duration    "30-60 minutes"
+    :mood        :focused}
+   {:activity    "Work session"
+    :description "Productive solo work in a cafe atmosphere"
+    :duration    "2-3 hours"
+    :mood        :focused}]
+
+  "library"
+  [{:activity    "Browse and read"
+    :description "Explore the stacks and find something new"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Quiet study"
+    :description "Focused reading or research time"
+    :duration    "2-3 hours"
+    :mood        :focused}
+   {:activity    "Research project"
+    :description "Deep dive into a topic using library resources"
+    :duration    "2-4 hours"
+    :mood        :focused}
+   {:activity    "Audiobook discovery"
+    :description "Check out audiobooks for your commute"
+    :duration    "30 minutes"
+    :mood        :relaxing}
+   {:activity    "Magazine browsing"
+    :description "Catch up on periodicals and journals"
+    :duration    "1 hour"
+    :mood        :relaxing}
+   {:activity    "Genealogy research"
+    :description "Explore your family history"
+    :duration    "2-3 hours"
+    :mood        :focused}
+   {:activity    "Poetry reading"
+    :description "Lose yourself in verse"
+    :duration    "1 hour"
+    :mood        :relaxing}
+   {:activity    "Movie selection"
+    :description "Browse the DVD collection for weekend viewing"
+    :duration    "30-45 minutes"
+    :mood        :relaxing}]
+
+  "museum"
+  [{:activity    "Explore exhibits"
+    :description "Discover art, history, or science"
+    :duration    "1-3 hours"
+    :mood        :relaxing}
+   {:activity    "Sketch the art"
+    :description "Bring a sketchbook and practice drawing"
+    :duration    "2-3 hours"
+    :mood        :creative}
+   {:activity    "Audio tour"
+    :description "Deep dive with headphones"
+    :duration    "1-2 hours"
+    :mood        :focused}
+   {:activity    "Photography session"
+    :description "Capture interesting compositions"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Contemplate a single piece"
+    :description "Spend quality time with one artwork"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}]
+
+  "park"
+  [{:activity    "Picnic"
+    :description "Enjoy food outdoors in a beautiful setting"
+    :duration    "1-2 hours"
+    :mood        :social}
+   {:activity    "Frisbee"
+    :description "Toss a disc on the lawn"
+    :duration    "30-60 minutes"
+    :mood        :active}
+   {:activity    "Bird watching"
+    :description "Observe local wildlife"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Sunset hangout"
+    :description "Watch the day wind down with friends"
+    :duration    "1 hour"
+    :mood        :social}
+   {:activity    "Tai Chi practice"
+    :description "Slow movement meditation outdoors"
+    :duration    "30-45 minutes"
+    :mood        :relaxing}
+   {:activity    "Read under a tree"
+    :description "Find shade and get lost in a book"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Hacky sack"
+    :description "Kick around with friends"
+    :duration    "30-60 minutes"
+    :mood        :active}
+   {:activity    "Cloud watching"
+    :description "Lie back and see shapes in the sky"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Outdoor sketching"
+    :description "Draw the scenery or people"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Bocce ball"
+    :description "Classic lawn game with friends"
+    :duration    "1-2 hours"
+    :mood        :social}
+   {:activity    "Catch"
+    :description "Simple throw and catch with a ball or football"
+    :duration    "30-60 minutes"
+    :mood        :active}
+   {:activity    "Nature journaling"
+    :description "Document plants and animals you observe"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Blanket meditation"
+    :description "Mindfulness practice on the grass"
+    :duration    "20-30 minutes"
+    :mood        :relaxing}
+   {:activity    "Outdoor nap"
+    :description "Catch some Zs in the fresh air"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Badminton"
+    :description "Set up a net and volley"
+    :duration    "1-2 hours"
+    :mood        :active}
+   {:activity    "Bubbles"
+    :description "Blow bubbles and feel like a kid again"
+    :duration    "15-30 minutes"
+    :mood        :relaxing}
+   {:activity    "Sunrise yoga"
+    :description "Greet the day with movement"
+    :duration    "45-60 minutes"
+    :mood        :active}
+   {:activity    "Sunset photography"
+    :description "Capture golden hour light"
+    :duration    "30-60 minutes"
+    :mood        :creative}
+   {:activity    "Kite flying"
+    :description "Let your kite dance in the wind"
+    :duration    "1-2 hours"
+    :mood        :active}
+   {:activity    "Outdoor workout"
+    :description "Bodyweight exercises in fresh air"
+    :duration    "30-60 minutes"
+    :mood        :active}
+   {:activity    "Slack line"
+    :description "Practice balance on a line between trees"
+    :duration    "30-60 minutes"
+    :mood        :active}
+   {:activity    "Chess in the park"
+    :description "Find a table and play a game"
+    :duration    "1-2 hours"
+    :mood        :social}]
+
+  "dog_park"
+  [{:activity    "Dog socialization"
+    :description "Let your pup make friends"
+    :duration    "30-60 minutes"
+    :mood        :social}
+   {:activity    "Fetch session"
+    :description "Tire out your dog with ball throwing"
+    :duration    "30-45 minutes"
+    :mood        :active}
+   {:activity    "Dog training practice"
+    :description "Work on commands in a distracting environment"
+    :duration    "30-45 minutes"
+    :mood        :focused}
+   {:activity    "Meet other dog owners"
+    :description "Chat while dogs play"
+    :duration    "30-60 minutes"
+    :mood        :social}]
+
+  "garden"
+  [{:activity    "Garden stroll"
+    :description "Admire the plants and flowers"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Sketch the scenery"
+    :description "Capture the beauty in drawings"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Plant identification"
+    :description "Learn what's growing with an app"
+    :duration    "1 hour"
+    :mood        :focused}
+   {:activity    "Macro photography"
+    :description "Capture close-up details of flowers"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Mindful walking"
+    :description "Slow, intentional movement through nature"
+    :duration    "30-45 minutes"
+    :mood        :relaxing}
+   {:activity    "Butterfly watching"
+    :description "Observe pollinators at work"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Garden date"
+    :description "Romantic stroll among the flowers"
+    :duration    "1-2 hours"
+    :mood        :social}
+   {:activity    "Plein air painting"
+    :description "Set up an easel and paint the scene"
+    :duration    "2-3 hours"
+    :mood        :creative}]
+
+  "beach"
+  [{:activity    "Beach walk"
+    :description "Stroll along the shoreline"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Beach reading"
+    :description "Read with the sound of waves"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Shell collecting"
+    :description "Hunt for interesting shells"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Sandcastle building"
+    :description "Create a masterpiece from sand"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Tide pool exploration"
+    :description "Discover sea creatures in pools"
+    :duration    "1 hour"
+    :mood        :relaxing}
+   {:activity    "Beach yoga"
+    :description "Practice on the sand"
+    :duration    "45-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Beachcombing"
+    :description "Search for driftwood and treasures"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Ocean swimming"
+    :description "Cool off in the waves"
+    :duration    "30-60 minutes"
+    :mood        :active}
+   {:activity    "Beach picnic"
+    :description "Dine with an ocean view"
+    :duration    "1-2 hours"
+    :mood        :social}
+   {:activity    "Sunset watching"
+    :description "Watch the sun sink into the sea"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Beach sketching"
+    :description "Draw the coastline and waves"
+    :duration    "1-2 hours"
+    :mood        :creative}]
+
+  "viewpoint"
+  [{:activity    "Sunrise viewing"
+    :description "Watch the day begin from above"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Sunset viewing"
+    :description "Watch the sky transform with color"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Landscape photography"
+    :description "Capture the panorama"
+    :duration    "30-60 minutes"
+    :mood        :creative}
+   {:activity    "Stargazing"
+    :description "Watch stars emerge after dark"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "City lights viewing"
+    :description "Watch the urban glow after sunset"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Sketch the vista"
+    :description "Draw the landscape spread before you"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Mindful observation"
+    :description "Simply watch and breathe"
+    :duration    "15-30 minutes"
+    :mood        :relaxing}]
+
+  "community_centre"
+  [{:activity    "Explore programs"
+    :description "Check bulletin boards for upcoming activities"
+    :duration    "30 minutes"
+    :mood        :relaxing}
+   {:activity    "Volunteer inquiry"
+    :description "Learn how to give back to the community"
+    :duration    "30 minutes"
+    :mood        :social}]
+
+  "sports_centre"
+  [{:activity    "Open gym workout"
+    :description "Work out at your own pace"
+    :duration    "1-2 hours"
+    :mood        :active}
+   {:activity    "Swimming laps"
+    :description "Get cardio in the pool"
+    :duration    "30-60 minutes"
+    :mood        :active}
+   {:activity    "Weight training"
+    :description "Build strength and muscle"
+    :duration    "1-2 hours"
+    :mood        :active}]
+
+  "path"
+  [{:activity    "Trail walk"
+    :description "Enjoy the path at a leisurely pace"
+    :duration    "30-90 minutes"
+    :mood        :relaxing}
+   {:activity    "Trail run"
+    :description "Get some exercise on the trail"
+    :duration    "30-60 minutes"
+    :mood        :active}
+   {:activity    "Nature observation"
+    :description "Notice plants, birds, and wildlife"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Mindful walking"
+    :description "Moving meditation on the trail"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Dog walking"
+    :description "Give your pup some trail time"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Photography hike"
+    :description "Capture nature along the way"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Geocaching"
+    :description "Hunt for hidden treasures"
+    :duration    "1-2 hours"
+    :mood        :active}]
+
+  "footway"
+  [{:activity    "Urban exploration"
+    :description "Discover hidden corners of the neighborhood"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Street photography"
+    :description "Capture urban life and architecture"
+    :duration    "1-2 hours"
+    :mood        :creative}
+   {:activity    "Architecture appreciation"
+    :description "Notice building styles and details"
+    :duration    "1-2 hours"
+    :mood        :focused}
+   {:activity    "Window shopping"
+    :description "See what's new in local stores"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Mural hunting"
+    :description "Find street art and murals"
+    :duration    "1-2 hours"
+    :mood        :creative}]
+
+  "square"
+  [{:activity    "Fountain sitting"
+    :description "Relax near the water"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "People watching"
+    :description "Observe urban life flow by"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Lunch al fresco"
+    :description "Eat outdoors in the square"
+    :duration    "30-60 minutes"
+    :mood        :social}
+   {:activity    "Sketch the scene"
+    :description "Draw the buildings and activity"
+    :duration    "1-2 hours"
+    :mood        :creative}]
+
+  "plaza"
+  [{:activity    "Outdoor dining"
+    :description "Eat at a restaurant patio"
+    :duration    "1-2 hours"
+    :mood        :social}
+   {:activity    "Coffee break"
+    :description "Grab a drink and sit outside"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Gelato stroll"
+    :description "Walk and enjoy frozen treats"
+    :duration    "30-45 minutes"
+    :mood        :relaxing}]
+
+  "nature_reserve"
+  [{:activity    "Birdwatching"
+    :description "Spot species in their habitat"
+    :duration    "2-3 hours"
+    :mood        :relaxing}
+   {:activity    "Quiet observation"
+    :description "Sit and let nature come to you"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Nature photography"
+    :description "Capture wildlife and landscapes"
+    :duration    "2-3 hours"
+    :mood        :creative}
+   {:activity    "Wildlife tracking"
+    :description "Look for animal signs and tracks"
+    :duration    "1-2 hours"
+    :mood        :focused}]
+
+  "playground"
+  [{:activity    "Swing session"
+    :description "Feel like a kid again on the swings"
+    :duration    "15-30 minutes"
+    :mood        :relaxing}
+   {:activity    "Supervise kids"
+    :description "Watch children at play"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Parent meetup"
+    :description "Chat with other parents"
+    :duration    "30-60 minutes"
+    :mood        :social}]
+
+  "recreation_ground"
+  [{:activity    "Pickup soccer"
+    :description "Join an informal game"
+    :duration    "1-2 hours"
+    :mood        :active}
+   {:activity    "Frisbee"
+    :description "Toss a disc around"
+    :duration    "30-60 minutes"
+    :mood        :active}
+   {:activity    "Kite flying"
+    :description "Let your kite soar"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Picnic"
+    :description "Combine food with outdoor relaxation"
+    :duration    "1-2 hours"
+    :mood        :social}]
+
+  "hiking"
+  [{:activity    "Day hike"
+    :description "Explore trails at your own pace"
+    :duration    "2-4 hours"
+    :mood        :active}
+   {:activity    "Nature photography"
+    :description "Capture wilderness beauty"
+    :duration    "2-4 hours"
+    :mood        :creative}
+   {:activity    "Sunrise hike"
+    :description "Start early for golden light"
+    :duration    "2-4 hours"
+    :mood        :active}]
+
+  "winery"
+  [{:activity    "Wine tasting"
+    :description "Sample the vintages"
+    :duration    "1-2 hours"
+    :mood        :social}
+   {:activity    "Vineyard stroll"
+    :description "Walk among the vines"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Sunset wine"
+    :description "Sip while watching the sun set"
+    :duration    "1-2 hours"
+    :mood        :relaxing}]
+
+  "brewery"
+  [{:activity    "Beer tasting flight"
+    :description "Sample the house brews"
+    :duration    "1-2 hours"
+    :mood        :social}
+   {:activity    "Hang out with friends"
+    :description "Casual drinks and conversation"
+    :duration    "1-2 hours"
+    :mood        :social}]
+
+  "theatre"
+  [{:activity    "Check upcoming shows"
+    :description "Browse the marquee and plan a visit"
+    :duration    "15-30 minutes"
+    :mood        :relaxing}]
+
+  "gallery"
+  [{:activity    "Gallery walk"
+    :description "Browse the current exhibition"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Art appreciation"
+    :description "Study pieces that speak to you"
+    :duration    "1-2 hours"
+    :mood        :focused}]
+
+  "bookstore"
+  [{:activity    "Book browsing"
+    :description "Discover new reads"
+    :duration    "1-2 hours"
+    :mood        :relaxing}
+   {:activity    "Staff picks exploration"
+    :description "Find curated recommendations"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}
+   {:activity    "Magazine corner"
+    :description "Flip through periodicals"
+    :duration    "30-60 minutes"
+    :mood        :relaxing}]}
+
+ :scheduled-event-types
+ ;; These are EVENT TEMPLATES that require real-time verification
+ ;; The system must confirm via web search that the event is actually happening
+ ;; at the specific venue on the specific date/time before suggesting
+ ;;
+ ;; search-terms: keywords to use when searching for this event
+ ;; venue-types: which venue types might host this event
+
+ [{:event-type   "open-mic"
+   :activity     "Open mic night"
+   :description  "Watch or perform music, comedy, or poetry"
+   :duration     "2-3 hours"
+   :mood         :social
+   :search-terms ["open mic" "open mike" "open stage"]
+   :venue-types  #{"cafe" "brewery" "bar" "community_centre"}}
+
+  {:event-type   "trivia"
+   :activity     "Trivia night"
+   :description  "Test your knowledge with friends"
+   :duration     "2 hours"
+   :mood         :social
+   :search-terms ["trivia night" "pub quiz" "quiz night"]
+   :venue-types  #{"brewery" "bar" "restaurant"}}
+
+  {:event-type   "live-music"
+   :activity     "Live music"
+   :description  "Enjoy a live performance"
+   :duration     "2-3 hours"
+   :mood         :social
+   :search-terms ["live music" "live band" "concert" "performance"]
+   :venue-types  #{"cafe" "brewery" "bar" "theatre" "park" "square"}}
+
+  {:event-type   "comedy-show"
+   :activity     "Comedy show"
+   :description  "Laugh at stand-up or improv"
+   :duration     "1-2 hours"
+   :mood         :social
+   :search-terms ["comedy show" "stand-up" "improv" "comedy night"]
+   :venue-types  #{"theatre" "bar" "community_centre"}}
+
+  {:event-type   "author-reading"
+   :activity     "Author reading"
+   :description  "Hear from a visiting writer"
+   :duration     "1-2 hours"
+   :mood         :focused
+   :search-terms ["author reading" "book signing" "author event"]
+   :venue-types  #{"bookstore" "library"}}
+
+  {:event-type   "book-club"
+   :activity     "Book club meeting"
+   :description  "Discuss the latest selection"
+   :duration     "1-2 hours"
+   :mood         :social
+   :search-terms ["book club" "reading group"]
+   :venue-types  #{"bookstore" "library" "cafe"}}
+
+  {:event-type   "gallery-opening"
+   :activity     "Gallery opening"
+   :description  "Attend a new exhibit debut"
+   :duration     "2-3 hours"
+   :mood         :social
+   :search-terms ["gallery opening" "art opening" "exhibition opening" "vernissage"]
+   :venue-types  #{"gallery" "museum"}}
+
+  {:event-type   "guided-tour"
+   :activity     "Guided tour"
+   :description  "Learn from expert guides"
+   :duration     "1-2 hours"
+   :mood         :social
+   :search-terms ["guided tour" "docent tour" "walking tour"]
+   :venue-types  #{"museum" "gallery" "nature_reserve" "garden"}}
+
+  {:event-type   "farmers-market"
+   :activity     "Farmers market"
+   :description  "Browse fresh produce and local goods"
+   :duration     "1-2 hours"
+   :mood         :social
+   :search-terms ["farmers market" "farmer's market" "farmers' market"]
+   :venue-types  #{"square" "plaza" "park"}}
+
+  {:event-type   "food-truck-rally"
+   :activity     "Food truck rally"
+   :description  "Sample diverse cuisines from mobile vendors"
+   :duration     "1-2 hours"
+   :mood         :social
+   :search-terms ["food truck" "food truck rally" "food festival"]
+   :venue-types  #{"park" "plaza" "square"}}
+
+  {:event-type   "outdoor-movie"
+   :activity     "Outdoor movie screening"
+   :description  "Watch a film under the stars"
+   :duration     "2-3 hours"
+   :mood         :social
+   :search-terms ["outdoor movie" "movies in the park" "outdoor screening"]
+   :venue-types  #{"park" "plaza"}}
+
+  {:event-type   "yoga-class"
+   :activity     "Yoga class"
+   :description  "Join a group yoga session"
+   :duration     "1 hour"
+   :mood         :relaxing
+   :search-terms ["yoga class" "yoga in the park" "free yoga"]
+   :venue-types  #{"park" "community_centre" "sports_centre"}}
+
+  {:event-type   "dance-class"
+   :activity     "Dance class"
+   :description  "Learn salsa, swing, or other styles"
+   :duration     "1-2 hours"
+   :mood         :active
+   :search-terms ["dance class" "dance lesson" "social dance"]
+   :venue-types  #{"community_centre" "sports_centre"}}
+
+  {:event-type   "game-night"
+   :activity     "Game night"
+   :description  "Play board games with the community"
+   :duration     "2-3 hours"
+   :mood         :social
+   :search-terms ["game night" "board game night" "tabletop"]
+   :venue-types  #{"cafe" "brewery" "community_centre" "library"}}
+
+  {:event-type   "craft-workshop"
+   :activity     "Craft workshop"
+   :description  "Learn a new craft or skill"
+   :duration     "2-3 hours"
+   :mood         :creative
+   :search-terms ["craft workshop" "craft class" "DIY workshop" "maker"]
+   :venue-types  #{"community_centre" "library" "cafe"}}
+
+  {:event-type   "storytime"
+   :activity     "Children's storytime"
+   :description  "Stories and songs for little ones"
+   :duration     "30-45 minutes"
+   :mood         :social
+   :search-terms ["storytime" "story time" "children's story"]
+   :venue-types  #{"library" "bookstore"}}
+
+  {:event-type   "u-pick"
+   :activity     "U-pick produce"
+   :description  "Harvest your own fruits or vegetables"
+   :duration     "1-2 hours"
+   :mood         :active
+   :search-terms ["u-pick" "pick your own" "PYO" "fruit picking"]
+   :venue-types  #{"farm"}}
+
+  {:event-type   "brewery-tour"
+   :activity     "Brewery tour"
+   :description  "See how the beer is made"
+   :duration     "1 hour"
+   :mood         :focused
+   :search-terms ["brewery tour" "beer tour"]
+   :venue-types  #{"brewery"}}
+
+  {:event-type   "winery-tour"
+   :activity     "Winery tour"
+   :description  "Learn about the winemaking process"
+   :duration     "1-2 hours"
+   :mood         :focused
+   :search-terms ["winery tour" "vineyard tour" "wine tour"]
+   :venue-types  #{"winery"}}
+
+  {:event-type   "street-performer"
+   :activity     "Street performer watching"
+   :description  "Enjoy buskers and performers"
+   :duration     "30-60 minutes"
+   :mood         :social
+   :search-terms ["busker" "street performer" "street music"]
+   :venue-types  #{"square" "plaza" "park"}}
+
+  {:event-type   "festival"
+   :activity     "Festival"
+   :description  "Join a community celebration"
+   :duration     "2-4 hours"
+   :mood         :social
+   :search-terms ["festival" "fair" "celebration" "community event"]
+   :venue-types  #{"park" "plaza" "square"}}
+
+  {:event-type   "fitness-class"
+   :activity     "Fitness class"
+   :description  "Join a group workout"
+   :duration     "1 hour"
+   :mood         :active
+   :search-terms ["fitness class" "workout class" "exercise class" "bootcamp"]
+   :venue-types  #{"park" "sports_centre" "community_centre"}}
+
+  {:event-type   "pickup-basketball"
+   :activity     "Pickup basketball"
+   :description  "Join a casual game"
+   :duration     "1-2 hours"
+   :mood         :active
+   :search-terms ["pickup basketball" "open gym basketball" "hoops"]
+   :venue-types  #{"sports_centre" "park"}}
+
+  {:event-type   "climbing-session"
+   :activity     "Rock climbing session"
+   :description  "Challenge yourself on the wall"
+   :duration     "1-2 hours"
+   :mood         :active
+   :search-terms ["rock climbing" "climbing gym" "bouldering"]
+   :venue-types  #{"sports_centre"}}
+
+  {:event-type   "poetry-reading"
+   :activity     "Poetry reading"
+   :description  "Hear poets share their work"
+   :duration     "1-2 hours"
+   :mood         :creative
+   :search-terms ["poetry reading" "poetry night" "open mic poetry"]
+   :venue-types  #{"cafe" "bookstore" "library"}}
+
+  {:event-type   "karaoke"
+   :activity     "Karaoke night"
+   :description  "Sing your heart out with friends"
+   :duration     "2-3 hours"
+   :mood         :social
+   :search-terms ["karaoke" "karaoke night" "sing along"]
+   :venue-types  #{"bar" "restaurant" "brewery"}}]
+
+ :weather-activities
+ ;; Weather-based activities for outdoor venues
+ ;; These are inherent activities modulated by weather conditions
+
+ [{:activity    "Kite flying"
+   :description "Perfect wind for kites"
+   :duration    "1-2 hours"
+   :mood        :active
+   :conditions  {:wind-contains "1" :temp-min 55 :temp-max 85}}
+  {:activity    "Photography walk"
+   :description "Great light for outdoor photography"
+   :duration    "1-2 hours"
+   :mood        :creative
+   :conditions  {:forecast-contains ["cloud" "fog"] :or-not-daytime true}}
+  {:activity    "Outdoor yoga"
+   :description "Calm, comfortable conditions"
+   :duration    "1 hour"
+   :mood        :relaxing
+   :conditions  {:no-rain true :wind-not-contains "1" :temp-min 60 :temp-max 80}}
+  {:activity    "Trail walking"
+   :description "Clear conditions for an easy walk"
+   :duration    "1-2 hours"
+   :mood        :relaxing
+   :conditions  {:no-rain true :temp-min 50 :temp-max 85}}
+  {:activity    "Stargazing"
+   :description "Clear night sky for celestial observation"
+   :duration    "1-3 hours"
+   :mood        :relaxing
+   :conditions  {:forecast-contains ["clear" "sunny"] :not-daytime true}}
+  {:activity    "Sunrise run"
+   :description "Start the day with an invigorating jog"
+   :duration    "30-60 minutes"
+   :mood        :active
+   :conditions  {:no-rain true :temp-min 40 :temp-max 75}}
+  {:activity    "Outdoor painting"
+   :description "Perfect conditions for plein air art"
+   :duration    "2-3 hours"
+   :mood        :creative
+   :conditions  {:no-rain true :wind-not-contains "1" :temp-min 55 :temp-max 80}}
+  {:activity    "Picnic"
+   :description "Ideal weather for outdoor dining"
+   :duration    "1-2 hours"
+   :mood        :social
+   :conditions  {:no-rain true :temp-min 65 :temp-max 85 :daytime true}}
+  {:activity    "Beach day"
+   :description "Hot enough for sand and surf"
+   :duration    "2-4 hours"
+   :mood        :relaxing
+   :conditions  {:no-rain true :temp-min 75 :temp-max 95 :daytime true}}
+  {:activity    "Hot chocolate walk"
+   :description "Brisk weather perfect for warm drinks"
+   :duration    "30-60 minutes"
+   :mood        :relaxing
+   :conditions  {:temp-max 50}}
+  {:activity    "Cozy indoor retreat"
+   :description "Let the rain create ambiance outside"
+   :duration    "1-2 hours"
+   :mood        :relaxing
+   :conditions  {:forecast-contains ["rain" "storm"]}}
+  {:activity    "Storm watching"
+   :description "Observe the power of nature from safety"
+   :duration    "30-60 minutes"
+   :mood        :relaxing
+   :conditions  {:forecast-contains ["thunder" "storm"]}}
+  {:activity    "Fog photography"
+   :description "Capture mysterious misty scenes"
+   :duration    "1-2 hours"
+   :mood        :creative
+   :conditions  {:forecast-contains ["fog" "mist"]}}
+  {:activity    "Scenic walk"
+   :description "Enjoy the outdoors with a casual stroll"
+   :duration    "30-60 minutes"
+   :mood        :relaxing
+   :conditions  {:fallback true}}]
+
+ :time-mood-preferences
+ {:weekday-morning   #{:active :focused}
+  :weekday-lunch     #{:social :relaxing}
+  :weekday-afternoon #{:focused :active}
+  :weekday-evening   #{:relaxing :social :active :creative}
+  :weekend-morning   #{:active :relaxing}
+  :weekend-afternoon #{:social :relaxing :creative :active}
+  :weekend-evening   #{:social :relaxing}}
+
+ :indoor-venue-types
+ #{"cafe" "library" "museum" "community_centre" "sports_centre" "theatre" "gallery" "bookstore" "brewery" "winery"}}

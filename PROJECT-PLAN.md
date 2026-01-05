@@ -360,6 +360,41 @@ function openInMaps(latitude, longitude, name) {
 
 ---
 
+## Future Technical Capabilities
+
+### Complex Venue Navigation (Headless Browser)
+Some valuable activities require navigating complex web interfaces that cannot be scraped via simple HTTP requests. Examples:
+
+**Target Venues:**
+- **Second Harvest Food Bank** - Volunteer shift portal requires search/filter to see available opportunities
+- **Local volunteer portals** - Many nonprofits use dynamic booking systems
+- **Community center class schedules** - Often behind interactive calendars
+- **Library event systems** - Some use JavaScript-heavy event discovery
+
+**Technical Approach:**
+- Headless browser automation (Playwright or similar)
+- Scheduled background jobs to periodically scrape shift/event availability
+- Store discovered events in local database with expiration
+- No user credentials - only publicly accessible information
+- Rate-limited and respectful of robots.txt
+
+**Integration with Flow 1:**
+- Discovered volunteer shifts appear as scheduled events
+- System can suggest "Help at Second Harvest" when shifts are available
+- Same verification flow as other scheduled events but pre-cached
+
+**Implementation Considerations:**
+- Run as background service separate from main API
+- Cache results for 1-6 hours depending on venue update frequency
+- Handle dynamic content, pagination, and date filtering
+- Extract: activity name, location, date/time, capacity, requirements
+- Flag events requiring signup vs drop-in
+
+**MVP Exclusion Rationale:**
+Complex venue navigation requires significant infrastructure and maintenance. Initial MVP uses simpler web search verification for scheduled events. This capability expands the breadth of discoverable activities without changing the core suggestion flow.
+
+---
+
 ## Product Spine
 - Flow 1: Move me
 - Flow 2: Change the vibe

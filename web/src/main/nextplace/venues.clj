@@ -78,8 +78,8 @@
   [name1 name2]
   (if (or (nil? name1) (nil? name2))
     0
-    (let [n1    (normalize-name name1)
-          n2    (normalize-name name2)
+    (let [n1     (normalize-name name1)
+          n2     (normalize-name name2)
           words1 (set (str/split n1 #"\s+"))
           words2 (set (str/split n2 #"\s+"))
           common (count (clojure.set/intersection words1 words2))
@@ -91,15 +91,15 @@
 (defn- haversine-distance
   "Calculate distance in meters between two lat/lng points"
   [lat1 lng1 lat2 lng2]
-  (let [r     6371000 ;; Earth radius in meters
-        dlat  (Math/toRadians (- lat2 lat1))
-        dlng  (Math/toRadians (- lng2 lng1))
-        a     (+ (* (Math/sin (/ dlat 2)) (Math/sin (/ dlat 2)))
-                 (* (Math/cos (Math/toRadians lat1))
-                    (Math/cos (Math/toRadians lat2))
-                    (Math/sin (/ dlng 2))
-                    (Math/sin (/ dlng 2))))
-        c     (* 2 (Math/atan2 (Math/sqrt a) (Math/sqrt (- 1 a))))]
+  (let [r    6371000 ;; Earth radius in meters
+        dlat (Math/toRadians (- lat2 lat1))
+        dlng (Math/toRadians (- lng2 lng1))
+        a    (+ (* (Math/sin (/ dlat 2)) (Math/sin (/ dlat 2)))
+                (* (Math/cos (Math/toRadians lat1))
+                   (Math/cos (Math/toRadians lat2))
+                   (Math/sin (/ dlng 2))
+                   (Math/sin (/ dlng 2))))
+        c    (* 2 (Math/atan2 (Math/sqrt a) (Math/sqrt (- 1 a))))]
     (* r c)))
 
 (defn- duplicate?

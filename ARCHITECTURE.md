@@ -381,6 +381,30 @@ For discovery of events, volunteer opportunities, and community activities:
 - No API keys required for Eventbrite, Meetup, etc.
 - System discovers sources automatically - no user search interface
 
+### Event Verification System
+Scheduled events (open mic nights, trivia, karaoke, etc.) are verified before being suggested to users:
+
+**Architecture:**
+- `nextplace.events` - Event verification service with heuristic analysis
+- DuckDuckGo HTML search (no API key required, rate-limited to 1 req/5sec)
+- Smart contextual matching with confidence scoring
+- RocksDB caching with 6-hour TTL
+
+**Verification Approach:**
+1. Search DuckDuckGo for venue + event type + "schedule"
+2. Extract text from HTML, removing scripts/styles/tags
+3. Score venue-event connection (venue name near event terms)
+4. Score day-event connection (target day near event terms, recurring pattern bonus)
+5. Require both signals for high confidence (>0.5 threshold)
+6. Extract event time from contextual matches
+
+**Key Features:**
+- Recurring pattern detection ("every Monday", "Mondays", "weekly")
+- Contextual proximity scoring (terms must appear near each other)
+- No false positives from venue mentioned with wrong event type
+- No false positives from event mentioned for wrong day
+- Resilient retry with exponential backoff for rate limiting
+
 ## Discovery System
 
 ### Philosophy

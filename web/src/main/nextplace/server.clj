@@ -3,6 +3,7 @@
             [clojure.java.io :as io]
             [com.walmartlabs.lacinia :as lacinia]
             [integrant.core :as ig]
+            [nextplace.discovery :as discovery]
             [nextplace.schema :as schema]
             [reitit.ring :as ring]
             [ring.adapter.jetty :as jetty]
@@ -60,6 +61,7 @@
 (defn -main
   [& args]
   (let [db               (nextplace.db/open-db "data/nextplace.db")
+        _                (ig/init-key :nextplace/discovery {:db db})
         email-config     {:provider :postmark
                           :api-key  (get (System/getenv) "POSTMARK_API_KEY")
                           :from     "hello@nextplace.app"}

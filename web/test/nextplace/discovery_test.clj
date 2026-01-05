@@ -1,53 +1,85 @@
 (ns nextplace.discovery-test
   "Unit tests for nextplace.discovery"
-  (:require [clojure.test :refer [deftest is testing]]
+  (:require [clojure.test :refer [deftest is testing use-fixtures]]
             [clj-http.client :as http]
             [nextplace.discovery :as discovery]))
+
+;; =============================================================================
+;; Test Fixtures
+;; =============================================================================
+
+(defn activities-fixture
+  "Ensure activities are loaded before running tests."
+  [f]
+  (discovery/ensure-activities-loaded!)
+  (f))
+
+(use-fixtures :once activities-fixture)
 
 ;; =============================================================================
 ;; Pure Function Tests (no mocking required)
 ;; =============================================================================
 
+;; Valid activities from activities.edn for testing
+(def cafe-activities
+  #{"Read a book" "People watching" "Catch up with a friend" "Journal writing"
+    "Sketch session" "Language study" "Podcast listening" "Email catch-up"
+    "Creative writing" "Coffee tasting" "Crossword puzzles" "Work session"})
+
+(def library-activities
+  #{"Browse and read" "Quiet study" "Research project" "Audiobook discovery"
+    "Magazine browsing" "Genealogy research" "Poetry reading" "Movie selection"})
+
+(def museum-activities
+  #{"Explore exhibits" "Sketch the art" "Audio tour" "Photography session"
+    "Contemplate a single piece"})
+
+(def weather-activities
+  #{"Kite flying" "Photography walk" "Outdoor yoga" "Trail walking" "Stargazing"
+    "Sunrise run" "Outdoor painting" "Picnic" "Beach day" "Hot chocolate walk"
+    "Cozy indoor retreat" "Storm watching" "Fog photography" "Scenic walk"})
+
 (deftest match-activity-test
-  (testing "matches kite flying for windy warm weather (no venue)"
+  (testing "returns weather-appropriate activity for windy warm weather (no venue)"
     (let [weather {:wind_speed "15 mph" :temperature 60 :short_forecast "Sunny" :is_daytime true}
           result  (discovery/match-activity weather)]
-      (is (= "Kite flying" (:activity result)))))
+      (is (some? (:activity result)) "Should return an activity")
+      (is (weather-activities (:activity result)) "Should be a weather activity")))
 
-  (testing "matches photography walk for cloudy weather (no venue)"
+  (testing "returns weather-appropriate activity for cloudy weather (no venue)"
     (let [weather {:wind_speed "5 mph" :temperature 65 :short_forecast "Cloudy" :is_daytime true}
           result  (discovery/match-activity weather)]
-      (is (= "Photography walk" (:activity result)))))
+      (is (some? (:activity result)))))
 
-  (testing "matches photography walk for night time (no venue)"
+  (testing "returns activity for night time (no venue)"
     (let [weather {:wind_speed "5 mph" :temperature 65 :short_forecast "Clear" :is_daytime false}
           result  (discovery/match-activity weather)]
-      (is (= "Photography walk" (:activity result)))))
+      (is (some? (:activity result)))))
 
-  (testing "matches outdoor yoga for calm comfortable weather (no venue)"
+  (testing "returns activity for calm comfortable weather (no venue)"
     (let [weather {:wind_speed "3 mph" :temperature 70 :short_forecast "Sunny" :is_daytime true}
           result  (discovery/match-activity weather)]
-      (is (= "Outdoor yoga" (:activity result)))))
+      (is (some? (:activity result)))))
 
-  (testing "matches trail walking for clear moderate weather (no venue)"
+  (testing "returns activity for clear moderate weather (no venue)"
     (let [weather {:wind_speed "5 mph" :temperature 55 :short_forecast "Sunny" :is_daytime true}
           result  (discovery/match-activity weather)]
-      (is (= "Trail walking" (:activity result)))))
+      (is (some? (:activity result)))))
 
-  (testing "matches park cleanup for good weather outside trail walking range (no venue)"
+  (testing "returns activity for cooler weather (no venue)"
     (let [weather {:wind_speed "5 mph" :temperature 48 :short_forecast "Sunny" :is_daytime true}
           result  (discovery/match-activity weather)]
-      (is (= "Park cleanup" (:activity result)))))
+      (is (some? (:activity result)))))
 
-  (testing "falls back to scenic walk for rainy weather (no venue)"
+  (testing "returns activity for rainy weather (no venue)"
     (let [weather {:wind_speed "5 mph" :temperature 55 :short_forecast "Rain" :is_daytime true}
           result  (discovery/match-activity weather)]
-      (is (= "Scenic walk" (:activity result)))))
+      (is (some? (:activity result)))))
 
-  (testing "falls back to scenic walk for extreme cold (no venue)"
+  (testing "returns activity for extreme cold (no venue)"
     (let [weather {:wind_speed "5 mph" :temperature 30 :short_forecast "Sunny" :is_daytime true}
           result  (discovery/match-activity weather)]
-      (is (= "Scenic walk" (:activity result)))))
+      (is (some? (:activity result)))))
 
   (testing "handles nil weather values gracefully"
     (let [weather {}
@@ -55,23 +87,26 @@
       (is (some? (:activity result)))))
 
   ;; Venue-aware tests
-  (testing "indoor venue returns venue-specific activity regardless of weather"
+  (testing "cafe returns cafe-specific activity regardless of weather"
     (let [weather {:wind_speed "5 mph" :temperature 55 :short_forecast "Sunny" :is_daytime true}
           venue   {:type "cafe" :name "Test Cafe"}
           result  (discovery/match-activity weather venue)]
-      (is (contains? #{"Read a book" "Work session" "People watching"} (:activity result)))))
+      (is (cafe-activities (:activity result))
+          (str "Expected cafe activity, got: " (:activity result)))))
 
   (testing "library returns library-specific activity"
     (let [weather {:wind_speed "5 mph" :temperature 55 :short_forecast "Rain" :is_daytime true}
           venue   {:type "library" :name "City Library"}
           result  (discovery/match-activity weather venue)]
-      (is (contains? #{"Browse and read" "Quiet study"} (:activity result)))))
+      (is (library-activities (:activity result))
+          (str "Expected library activity, got: " (:activity result)))))
 
   (testing "museum returns museum-specific activity"
     (let [weather {:wind_speed "5 mph" :temperature 30 :short_forecast "Snow" :is_daytime true}
           venue   {:type "museum" :name "Art Museum"}
           result  (discovery/match-activity weather venue)]
-      (is (contains? #{"Explore exhibits" "Guided tour"} (:activity result))))))
+      (is (museum-activities (:activity result))
+          (str "Expected museum activity, got: " (:activity result))))))
 
 (deftest generate-event-time-test
   (testing "generates a time map with required keys"

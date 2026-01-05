@@ -63,6 +63,14 @@
   [_ db context args value]
   (mut-auth/auth-verify db context args value))
 
+(defmethod resolve-mutation :user-update-profile
+  [_ db context args value]
+  (mut-auth/update-profile db context args value))
+
+(defmethod resolve-mutation :social-event-create
+  [_ db context args value]
+  (mut-social/create-event db context args value))
+
 (defn resolver-map
   [db]
   {:query/current-suggestion       (partial resolve-query :current-suggestion)
@@ -76,4 +84,6 @@
    :mutation/experience-complete   (partial resolve-mutation :experience-complete db)
    :mutation/user-signup           (partial resolve-mutation :user-signup db)
    :mutation/user-auth-request     (partial resolve-mutation :user-auth-request db)
-   :mutation/user-auth-verify      (partial resolve-mutation :user-auth-verify db)})
+   :mutation/user-auth-verify      (partial resolve-mutation :user-auth-verify db)
+   :mutation/user-update-profile   (partial resolve-mutation :user-update-profile db)
+   :mutation/social-event-create   (partial resolve-mutation :social-event-create db)})
