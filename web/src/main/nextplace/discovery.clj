@@ -67,10 +67,26 @@
 
 ;; Geocoding via OpenStreetMap Nominatim (free, no API key)
 
+(defn- extract-simple-location
+  "Extract simple 'City, State' from Nominatim address details.
+   Falls back to input string if extraction fails."
+  [address-details input-str]
+  (let [city  (or (:city address-details)
+                  (:town address-details)
+                  (:village address-details)
+                  (:municipality address-details))
+        state (or (:state address-details)
+                  (:region address-details))]
+    (if (and city state)
+      (str city ", " state)
+      input-str)))
+
 (defn geocode
   "Geocode a location string to coordinates using OSM Nominatim.
    Biased to USA results for MVP (South SF Bay Area focus).
-   Returns {:lat :lng :formatted_address :bounds :input} or nil."
+   Returns {:lat :lng :formatted_address :simple_address :bounds :input} or nil.
+
+   :simple_address is 'City, State' format for cleaner search queries."
   [location-str]
   (let [;; Add USA context for bare zipcodes
         query    (if (re-matches #"^\d{5}$" location-str)
@@ -87,10 +103,12 @@
     (when (= 200 (:status response))
       (let [results (json/read-str (:body response) :key-fn keyword)]
         (when (seq results)
-          (let [result (first results)]
+          (let [result  (first results)
+                address (:address result)]
             {:lat               (Double/parseDouble (:lat result))
              :lng               (Double/parseDouble (:lon result))
              :formatted_address (:display_name result)
+             :simple_address    (extract-simple-location address location-str)
              :bounds            (when-let [bb (:boundingbox result)]
                                   {:southwest {:lat (Double/parseDouble (nth bb 0))
                                                :lng (Double/parseDouble (nth bb 2))}
@@ -448,37 +466,19 @@
      {:start     rounded
       :formatted (.format rounded formatter)})))
 
-(defn- search-scheduled-events
-  "Search for verified scheduled events near location within the suggestion window.
-   RATE LIMITED: Searches generically for event types in the area, then matches
-   against known venues. This approach makes fewer searches and finds more events.
-   If reference-time is provided, uses that as 'now' (for testing/validation).
-   Returns the first verified event or nil."
-  ([db venues] (search-scheduled-events db venues nil))
-  ([db venues reference-time]
+(defn- search-all-scheduled-events
+  "Search for ALL scheduled event types in the area within the suggestion window.
+   Uses area-based searching - one search per event type, not per venue.
+   Returns list of all verified events found.
+
+   If reference-time is provided, uses that as 'now' (for testing/validation)."
+  ([db area-name venues] (search-all-scheduled-events db area-name venues nil))
+  ([db area-name venues reference-time]
    (let [{:keys [dates]} (suggestion-window reference-time)
-         event-templates (scheduled-event-types)
-         ;; Build venue name lookup for matching search results
-         venue-names     (set (map (comp str/lower-case :name) venues))
-         venue-by-name   (into {} (map (fn [v] [(str/lower-case (:name v)) v]) venues))]
+         event-templates (scheduled-event-types)]
      (when (seq event-templates)
-       ;; Pick ONE random event type to search for (rate limiting)
-       (let [template    (rand-nth event-templates)
-             target-date (rand-nth dates)
-             ;; Generic area search instead of venue-specific
-             search-term (first (:search-terms template))]
-         (log/info "Searching for" search-term "events on" (.toString target-date))
-         ;; Use events/verify-event but with a synthetic "area" venue
-         ;; to do a broad search, then match results against known venues
-         (let [area-query      (str search-term " " (.toString target-date))
-               ;; For now, just pick a random matching venue to verify
-               ;; Future: parse search results to find mentioned venues
-               matching-venues (filter #(contains? (:venue-types template) (:type %))
-                                       venues)]
-           (when (seq matching-venues)
-             (let [venue (rand-nth (take 5 matching-venues))]
-               (log/info "Verifying at venue:" (:name venue))
-               (events/verify-event db venue template target-date)))))))))
+       (events/find-all-verified-events db area-name venues event-templates dates
+                                        :max-searches 5)))))
 
 (defn- format-scheduled-event-as-suggestion
   "Convert a verified scheduled event to the standard suggestion format."
@@ -496,37 +496,58 @@
      :verified true
      :source   :scheduled}))
 
-(defn- generate-inherent-suggestion
-  "Generate a suggestion using inherent activities (always available).
-   These are guaranteed to be possible - no verification needed.
-   If reference-time is provided, uses that as 'now' (for testing/validation)."
-  ([geo weather venues] (generate-inherent-suggestion geo weather venues nil))
-  ([geo weather venues reference-time]
-   (let [place    (rand-nth (take 20 venues))
-         activity (match-activity weather place)
-         time     (generate-event-time reference-time)]
-     {:place    place
-      :activity (dissoc activity :match-fn)
-      :weather  weather
-      :time     time
-      :location geo
-      :verified true
-      :source   :inherent})))
+(defn- generate-inherent-options
+  "Generate inherent activity options for venues.
+   Returns list of {:place :activity :weight} maps."
+  [weather venues num-options]
+  (->> venues
+       (take 20)
+       (shuffle)
+       (take num-options)
+       (map (fn [place]
+              (let [activity (match-activity weather place)]
+                {:place    place
+                 :activity (dissoc activity :match-fn)
+                 :weight   1.0
+                 :source   :inherent})))
+       (vec)))
+
+(def ^:private scheduled-event-weight 3.0)
+
+(defn- weighted-random-selection
+  "Select one item from a weighted list.
+   Each item should have a :weight key."
+  [items]
+  (when (seq items)
+    (let [total-weight (reduce + (map :weight items))
+          roll         (* (rand) total-weight)]
+      (loop [remaining  items
+             cumulative 0.0]
+        (when (seq remaining)
+          (let [item      (first remaining)
+                new-cumul (+ cumulative (:weight item))]
+            (if (< roll new-cumul)
+              item
+              (recur (rest remaining) new-cumul))))))))
 
 (defn generate-suggestion
   "Generate THE suggestion for a location.
 
    This is the core Flow 1 function. Takes ONLY location (from GPS).
    Current time comes from system clock. User has zero input.
-   Returns ONE suggestion - either a verified scheduled event or an inherent activity.
+   Returns ONE suggestion selected from a weighted pool.
 
    The system:
    1. Calculates the 4-48 hour suggestion window
    2. Fetches weather for the location
    3. Finds venues nearby
-   4. Searches for verified scheduled events in the window (if db available)
-   5. If a scheduled event is found, returns that
-   6. Otherwise, generates an inherent activity suggestion
+   4. Searches for ALL verified scheduled events in the window
+   5. Generates inherent activity options
+   6. Creates weighted pool: scheduled events (3x weight) + inherent (1x weight)
+   7. Randomly selects from weighted pool
+
+   Verified scheduled events are weighted higher because they represent
+   real, time-bound opportunities that users should prioritize.
 
    Optional reference-time parameter (LocalDateTime) allows console/testing to
    simulate a different 'now' for validation purposes.
@@ -534,16 +555,48 @@
    Returns {:place :activity :weather :time :location :verified :source} or nil."
   ([geo] (generate-suggestion geo nil))
   ([geo reference-time]
-   (let [db @discovery-db]
+   (let [db        @discovery-db
+         area-name (or (:simple_address geo) (:input geo))]
      (when-let [weather (fetch-weather geo)]
        (when-let [venues (seq (find-venues db geo))]
-         ;; Try to find a verified scheduled event first (only if db is available)
-         (if-let [scheduled-event (and db (search-scheduled-events db venues reference-time))]
-           (do
-             (log/info "Found scheduled event:" (:activity scheduled-event)
-                       "at" (get-in scheduled-event [:venue :name]))
-             (format-scheduled-event-as-suggestion scheduled-event geo weather))
-           ;; Fall back to inherent activity
-           (do
-             (log/debug "No scheduled events found, generating inherent activity")
-             (generate-inherent-suggestion geo weather venues reference-time))))))))
+
+         ;; Get all verified scheduled events (if db available)
+         (let [scheduled-events (when db
+                                  (search-all-scheduled-events db area-name venues reference-time))
+
+               ;; Convert scheduled events to weighted options
+               scheduled-options (->> (or scheduled-events [])
+                                      (map (fn [event]
+                                             {:place    (:venue event)
+                                              :activity {:activity    (:activity event)
+                                                         :description (:description event)
+                                                         :duration    (:duration event)
+                                                         :mood        (:mood event)}
+                                              :time     {:start     (:start-time event)
+                                                         :formatted (.format (:start-time event)
+                                                                             (DateTimeFormatter/ofPattern "EEEE h:mm a"))}
+                                              :weight   (* scheduled-event-weight (:confidence event))
+                                              :source   :scheduled
+                                              :verified true}))
+                                      (vec))
+
+               ;; Generate inherent activity options
+               inherent-options (generate-inherent-options weather venues 5)
+
+               ;; Combine into weighted pool
+               all-options (concat scheduled-options inherent-options)
+
+               _ (log/info "Weighted pool:" (count scheduled-options) "scheduled events,"
+                           (count inherent-options) "inherent activities")]
+
+           ;; Select from weighted pool
+           (when-let [selected (weighted-random-selection all-options)]
+             (let [time-info (or (:time selected)
+                                 (generate-event-time reference-time))]
+               {:place    (:place selected)
+                :activity (:activity selected)
+                :weather  weather
+                :time     time-info
+                :location geo
+                :verified (or (:verified selected) true)
+                :source   (:source selected)}))))))))

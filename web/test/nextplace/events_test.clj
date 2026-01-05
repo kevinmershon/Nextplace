@@ -230,3 +230,47 @@
           (println "Event time:" (:event_time result))
           (println "Reasoning:" (:reasoning result))
           (is (:verified result) "7 Stars should have karaoke on Friday"))))))
+
+;; =============================================================================
+;; Area Search Tests (Pure Functions)
+;; =============================================================================
+
+;; Longer sample with clear separation between venues (>500 chars between sections)
+(def sample-area-html
+  (str "Mountain View open mic events. Red Rock Coffee hosts open mic every Monday at 6pm. "
+       "The weekly open mic at Red Rock Coffee is popular with local musicians and poets. "
+       "Sign-ups start at 5:30pm and performances begin promptly at 6pm. "
+       (apply str (repeat 100 "x"))  ;; Padding to separate sections
+       " Dana Street Roasting Company is located downtown and serves excellent pour-over coffee. "
+       "They host trivia nights on Wednesdays which draw a competitive crowd. "
+       "The trivia starts at 7pm and teams of up to 6 are welcome. "
+       (apply str (repeat 100 "x"))  ;; More padding
+       " Blue Bottle Coffee serves premium single-origin beans. "
+       "Their minimalist design and careful brewing makes for a peaceful experience. "
+       "No events are hosted here, just great coffee in a quiet atmosphere."))
+
+(def mountain-view-venues
+  [{:name "Red Rock Coffee" :osm_id "test-1" :type "cafe"}
+   {:name "Dana Street Roasting" :osm_id "test-2" :type "cafe"}
+   {:name "Blue Bottle Coffee" :osm_id "test-3" :type "cafe"}
+   {:name "Some Random Park" :osm_id "test-4" :type "park"}])
+
+(deftest extract-venue-mentions-test
+  (testing "finds venues mentioned with event terms"
+    (let [result (#'events/extract-venue-mentions sample-area-html ["open mic"] mountain-view-venues)]
+      (is (= 1 (count result)) "Should find Red Rock mentioned with open mic")
+      (is (= "Red Rock Coffee" (:name (first result))))))
+
+  (testing "returns empty for unrelated venues"
+    (let [result (#'events/extract-venue-mentions sample-area-html ["karaoke"] mountain-view-venues)]
+      (is (empty? result) "No venue mentioned with karaoke")))
+
+  (testing "finds trivia venue correctly"
+    (let [result (#'events/extract-venue-mentions sample-area-html ["trivia"] mountain-view-venues)]
+      (is (= 1 (count result)) "Should find Dana Street with trivia")
+      (is (= "Dana Street Roasting" (:name (first result))))))
+
+  (testing "does not match venue without event term proximity"
+    (let [result (#'events/extract-venue-mentions sample-area-html ["open mic"] mountain-view-venues)]
+      (is (not (some #(= "Blue Bottle Coffee" (:name %)) result))
+          "Blue Bottle not mentioned with open mic"))))

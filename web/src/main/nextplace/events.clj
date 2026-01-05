@@ -344,16 +344,151 @@
                           "| reasoning:" (:reasoning result))
                 nil))))))))
 
-(defn find-verified-events
-  "Find all verified scheduled events for venues in an area on a target date.
-   Returns sequence of verified event maps.
+(defn- extract-venue-mentions
+  "Find which venues from our list are mentioned in search results text.
+   Returns venues whose names appear near event terms.
+   Uses a 100-char window to ensure tight proximity matching."
+  [text event-terms venues]
+  (let [text-lower (str/lower-case text)]
+    (->> venues
+         (filter (fn [venue]
+                   (let [name-lower (str/lower-case (:name venue))
+                         name-parts (str/split name-lower #"\s+")
+                         ;; Use first significant word (>3 chars) to find mentions
+                         sig-word   (first (filter #(> (count %) 3) name-parts))]
+                     (when sig-word
+                       ;; Check if venue mentioned near event terms (within 100 chars)
+                       (let [venue-matches (find-contextual-matches text-lower
+                                                                    (re-pattern (str "(?i)" sig-word))
+                                                                    100)]
+                         (some (fn [{:keys [context]}]
+                                 (some #(str/includes? context (str/lower-case %)) event-terms))
+                               venue-matches))))))
+         (vec))))
+
+(defn search-area-for-event-type
+  "Search for an event type across a geographic area.
+   Instead of searching for a specific venue, searches the whole area
+   and identifies which known venues are mentioned with the event.
+
+   Returns list of verified event maps for any confirmed venue+event+day combinations.
 
    Parameters:
-   - db: RocksDB instance
+   - db: RocksDB instance for caching
+   - area-name: Geographic area string (e.g., 'Springfield, TN')
+   - venues: Sequence of venue maps to match against
+   - event-template: Event template with :search-terms, :activity, etc.
+   - target-date: LocalDate to check"
+  [db area-name venues event-template ^LocalDate target-date]
+  (let [event-type     (:event-type event-template)
+        search-term    (first (:search-terms event-template))
+        cache-key-base (str "area_search:" (str/replace area-name #"[^a-zA-Z0-9]" "_")
+                            ":" event-type ":" (.toString target-date))]
+
+    ;; Check if we've already searched this area+event+date
+    (if-let [cached (db/get-value db cache-key-base)]
+      (when (< (- (System/currentTimeMillis) (:cached_at cached)) cache-ttl-ms)
+        (log/debug "Using cached area search for" area-name event-type)
+        (:events cached))
+
+      ;; Perform area-wide search
+      (let [query       (str area-name " " search-term " schedule")
+            _           (log/info "Area search:" event-type "| query:" query)
+            search-html (fetch-search-results query)]
+
+        (if-not search-html
+          (do
+            (db/put-value db cache-key-base {:events [] :cached_at (System/currentTimeMillis)})
+            (log/info "No results for" event-type "in" area-name)
+            [])
+
+          ;; Find which known venues are mentioned in results
+          (let [text             (extract-text-snippets search-html)
+                event-terms      (:search-terms event-template)
+                mentioned-venues (extract-venue-mentions text event-terms venues)
+                ;; Filter to venues that match this event's venue-types
+                matching-venues  (filter #(contains? (:venue-types event-template) (:type %))
+                                         mentioned-venues)
+                _                (when (seq matching-venues)
+                                   (log/info "Found venues mentioned:" (mapv :name matching-venues)))
+
+                ;; Verify each mentioned venue using the same search results
+                verified-events
+                (->> matching-venues
+                     (map (fn [venue]
+                            (let [result (verify-event-heuristic search-html (:name venue)
+                                                                 event-template target-date)]
+                              (when (and result (:verified result) (>= (:confidence result) 0.5))
+                                (let [[hour minute] (or (parse-time-string (:event_time result)) [19 0])
+                                      start-time    (.atTime target-date hour minute)]
+                                  {:venue       venue
+                                   :activity    (:activity event-template)
+                                   :description (:description event-template)
+                                   :duration    (:duration event-template)
+                                   :mood        (:mood event-template)
+                                   :event-type  event-type
+                                   :start-time  start-time
+                                   :confidence  (:confidence result)
+                                   :reasoning   (:reasoning result)
+                                   :verified    true
+                                   :verified-at (System/currentTimeMillis)})))))
+                     (filter some?)
+                     (vec))]
+
+            ;; Cache the results
+            (db/put-value db cache-key-base {:events verified-events :cached_at (System/currentTimeMillis)})
+
+            (if (seq verified-events)
+              (log/info "Verified" (count verified-events) "events for" event-type "in" area-name)
+              (log/info "No verified events for" event-type "in" area-name))
+
+            verified-events))))))
+
+(defn find-all-verified-events
+  "Search for ALL scheduled event types in an area.
+   Returns all verified events across all event types that match available venues.
+
+   This is the main entry point for scheduled event discovery. It:
+   1. Filters event templates to those matching available venue types
+   2. Searches for each event type in the area (one search per type)
+   3. Identifies which known venues are mentioned in results
+   4. Verifies and returns all confirmed events
+
+   Parameters:
+   - db: RocksDB instance for caching
+   - area-name: Geographic area (e.g., 'Springfield, TN')
    - venues: Sequence of venue maps
    - event-templates: Sequence of event templates to check
-   - target-date: LocalDate to check
-   - max-searches: Maximum number of web searches to perform"
+   - target-dates: Sequence of LocalDates to check
+   - max-searches: Maximum web searches to perform (rate limiting)"
+  [db area-name venues event-templates target-dates & {:keys [max-searches] :or {max-searches 5}}]
+  (let [;; Get venue types we have
+        available-types (set (map :type venues))
+
+        ;; Filter templates to those with matching venue types
+        relevant-templates (->> event-templates
+                                (filter #(some available-types (:venue-types %)))
+                                (vec))
+
+        ;; Limit searches - pick random subset if too many
+        templates-to-search (if (> (count relevant-templates) max-searches)
+                              (take max-searches (shuffle relevant-templates))
+                              relevant-templates)
+
+        ;; Pick one target date (usually tomorrow or day after)
+        target-date (first target-dates)]
+
+    (log/info "Searching" (count templates-to-search) "event types in" area-name
+              "for" (.toString target-date))
+
+    ;; Search for each event type (rate limited by fetch-search-results)
+    (->> templates-to-search
+         (mapcat #(search-area-for-event-type db area-name venues % target-date))
+         (vec))))
+
+(defn find-verified-events
+  "DEPRECATED: Use find-all-verified-events instead.
+   Kept for backward compatibility."
   [db venues event-templates ^LocalDate target-date & {:keys [max-searches] :or {max-searches 10}}]
   (let [venue-event-pairs
         (for [venue    venues
