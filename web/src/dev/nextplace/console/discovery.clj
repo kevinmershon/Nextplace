@@ -1,10 +1,10 @@
 (ns nextplace.console.discovery
-  "Discovery console for auto-discovering opportunities by location"
+  "Discovery console for auto-discovering opportunities by location.
+   Thin wrapper around nextplace.discovery for REPL usage."
   (:require [clj-http.client :as http]
-            [clojure.data.json :as json]
-            [clojure.pprint :refer [pprint]]
             [clojure.string :as str]
-            [nextplace.console.util :as util])
+            [nextplace.console.util :as util]
+            [nextplace.discovery :as discovery])
   (:import [java.net URLEncoder]))
 
 (defonce ^:private back-ns (atom 'user))
@@ -42,77 +42,7 @@
       (println (util/format-command v) "\n")))
   :ok)
 
-;; Geocoding via OpenStreetMap Nominatim (free, no API key)
-
-(defn- geocode-location
-  "Geocode a location string to coordinates using OSM Nominatim.
-   Biased to USA results for MVP (South SF Bay Area focus)."
-  [location-str]
-  (let [;; Add USA context for bare zipcodes
-        query    (if (re-matches #"^\d{5}$" location-str)
-                   (str location-str ", USA")
-                   location-str)
-        url      (str "https://nominatim.openstreetmap.org/search"
-                      "?q=" (url-encode query)
-                      "&format=json"
-                      "&limit=1"
-                      "&addressdetails=1"
-                      "&countrycodes=us")
-        response (http/get url (merge http-opts
-                                      {:headers {"User-Agent" "Nextplace/1.0"}}))]
-    (when (= 200 (:status response))
-      (let [results (json/read-str (:body response) :key-fn keyword)]
-        (when (seq results)
-          (let [result (first results)]
-            {:lat               (Double/parseDouble (:lat result))
-             :lng               (Double/parseDouble (:lon result))
-             :formatted_address (:display_name result)
-             :bounds            (when-let [bb (:boundingbox result)]
-                                  {:southwest {:lat (Double/parseDouble (nth bb 0))
-                                               :lng (Double/parseDouble (nth bb 2))}
-                                   :northeast {:lat (Double/parseDouble (nth bb 1))
-                                               :lng (Double/parseDouble (nth bb 3))}})
-             :input             location-str}))))))
-
-;; Overpass API for parks
-
-(defn- overpass-query
-  "Execute an Overpass API query"
-  [query]
-  (let [url      "https://overpass-api.de/api/interpreter"
-        response (http/post url (merge http-opts
-                                       {:form-params {:data query}}))]
-    (when (= 200 (:status response))
-      (json/read-str (:body response) :key-fn keyword))))
-
-(defn- find-parks
-  "Find parks near coordinates"
-  [{:keys [lat lng bounds]}]
-  (let [radius (if bounds
-                 (let [ne-lat (get-in bounds [:northeast :lat])
-                       sw-lat (get-in bounds [:southwest :lat])]
-                   (max 5000 (* 111000 (- ne-lat sw-lat))))
-                 10000)
-        query  (str "[out:json][timeout:30];"
-                    "(way[\"leisure\"=\"park\"](around:" radius "," lat "," lng ");"
-                    " relation[\"leisure\"=\"park\"](around:" radius "," lat "," lng ");"
-                    " way[\"leisure\"=\"nature_reserve\"](around:" radius "," lat "," lng ");"
-                    " way[\"landuse\"=\"recreation_ground\"](around:" radius "," lat "," lng "););"
-                    "out body geom;")]
-    (when-let [result (overpass-query query)]
-      (->> (:elements result)
-           (filter #(get-in % [:tags :name]))
-           (map (fn [el]
-                  {:name     (get-in el [:tags :name])
-                   :type     (or (get-in el [:tags :leisure])
-                                 (get-in el [:tags :landuse]))
-                   :website  (get-in el [:tags :website])
-                   :osm_id   (:id el)
-                   :osm_type (:type el)}))
-           (distinct)
-           (sort-by :name)))))
-
-;; Web Search
+;; Web Search (console-specific for admin discovery)
 
 (defn- ddg-search
   "Search DuckDuckGo and return results"
@@ -130,13 +60,13 @@
 
 (defn- search-all-categories
   "Search all discovery categories for a location"
-  [location-name parks]
+  [location-name venues]
   (let [categories [["nonprofit volunteer opportunities" :volunteer]
                     ["park cleanup community service" :park_cleanup]
                     ["animal rescue volunteer humane society" :animal_rescue]
                     ["walking group hiking meetup easy" :walking_groups]
                     ["open streets community event festival" :community_events]]
-        results    (atom {:parks parks})]
+        results    (atom {:venues venues})]
 
     ;; Base location searches
     (doseq [[suffix category] categories]
@@ -146,18 +76,18 @@
         (swap! results assoc category search-results)
         (Thread/sleep 1000)))
 
-    ;; Park-specific searches for events
-    (when (seq parks)
-      (println "  Searching park events...")
-      (let [park-events (atom [])]
-        (doseq [park (take 5 parks)]
-          (let [query   (str (:name park) " " location-name " cleanup meetup event")
+    ;; Venue-specific searches for events
+    (when (seq venues)
+      (println "  Searching venue events...")
+      (let [venue-events (atom [])]
+        (doseq [venue (take 5 venues)]
+          (let [query   (str (:name venue) " " location-name " cleanup meetup event")
                 results (ddg-search query)]
             (when (seq results)
-              (swap! park-events concat
-                     (map #(assoc % :park (:name park)) results)))
+              (swap! venue-events concat
+                     (map #(assoc % :venue (:name venue)) results)))
             (Thread/sleep 500)))
-        (swap! results assoc :park_events (distinct @park-events))))
+        (swap! results assoc :venue_events (distinct @venue-events))))
 
     @results))
 
@@ -166,19 +96,19 @@
   [results]
   (println "\n=== Discovery Results ===\n")
 
-  (when-let [parks (:parks results)]
-    (println "## PARKS & NATURE AREAS (" (count parks) ")")
-    (doseq [{:keys [name type website]} parks]
+  (when-let [venues (:venues results)]
+    (println "## VENUES (" (count venues) ")")
+    (doseq [{:keys [name type website]} (take 30 venues)]
       (println " -" name (str "(" type ")")
                (when website (str "\n   " website))))
     (println))
 
-  (doseq [[category items] (dissoc results :parks)]
+  (doseq [[category items] (dissoc results :venues)]
     (when (seq items)
       (println (str "## " (-> category name str/upper-case (str/replace "_" " "))
                     " (" (count items) ")"))
-      (doseq [{:keys [title url park]} (take 10 items)]
-        (println " -" title (when park (str "[" park "]")))
+      (doseq [{:keys [title url venue]} (take 10 items)]
+        (println " -" title (when venue (str "[" venue "]")))
         (println "  " url))
       (println))))
 
@@ -192,18 +122,18 @@
   (println "Location:" location-str "\n")
 
   (print "Geocoding... ")
-  (if-let [geo (geocode-location location-str)]
+  (if-let [geo (discovery/geocode location-str)]
     (do
       (println (:formatted_address geo))
       (println "Coordinates:" (:lat geo) "," (:lng geo) "\n")
       (reset! current-location geo)
 
-      (println "Finding parks...")
-      (let [parks (find-parks geo)]
-        (println "  Found" (count parks) "parks/nature areas\n")
+      (println "Finding venues...")
+      (let [venues (discovery/find-venues geo)]
+        (println "  Found" (count venues) "venues\n")
 
         (println "Searching opportunities...")
-        (let [results (search-all-categories (:formatted_address geo) parks)]
+        (let [results (search-all-categories (:formatted_address geo) venues)]
           (print-results results)
           results)))
     (do
@@ -217,3 +147,90 @@
   (if @current-location
     (println "Last location:" (:formatted_address @current-location))
     (println "No discovery run yet. Use (discover \"location\") to start.")))
+
+;; Suggestion display
+
+(defn- format-suggestion
+  "Format a suggestion for display"
+  [{:keys [place activity weather time location]}]
+  (println "\n╔════════════════════════════════════════════════════════════╗")
+  (println "║                    NEXTPLACE SUGGESTION                    ║")
+  (println "╚════════════════════════════════════════════════════════════╝\n")
+  (println "📍 PLACE")
+  (println "  " (:name place))
+  (when (:type place)
+    (println "   Type:" (:type place)))
+  (println)
+  (println "🎯 ACTIVITY")
+  (println "  " (:activity activity))
+  (println "  " (:description activity))
+  (println "   Duration:" (:duration activity))
+  (println)
+  (println "🌤️  WEATHER")
+  (println "  " (:temperature weather) "°" (:temperature_unit weather))
+  (println "  " (:short_forecast weather))
+  (when (:wind_speed weather)
+    (println "   Wind:" (:wind_speed weather) (:wind_direction weather)))
+  (println)
+  (println "🕐 WHEN")
+  (println "  " (:formatted time))
+  (println)
+  (println "📍 MEETING POINT")
+  (println "   Main entrance or parking lot")
+  (println "   (Precise meeting point TBD)")
+  (println)
+  (println "─────────────────────────────────────────────────────────────")
+  (println "           [ JOIN ]           [ SKIP ]")
+  (println "─────────────────────────────────────────────────────────────\n"))
+
+(defn suggest
+  "Generate a Flow 1 style suggestion for a location.
+   Usage: (suggest) - uses last discovered location
+          (suggest \"San Jose, CA\") - uses specified location"
+  ([]
+   (if @current-location
+     (suggest (:input @current-location))
+     (println "No location set. Use (suggest \"location\") or (discover \"location\") first.")))
+  ([location-str]
+   (println "\n=== Generating Suggestion ===")
+   (println "Location:" location-str "\n")
+
+   (print "Geocoding... ")
+   (if-let [geo (discovery/geocode location-str)]
+     (do
+       (println (:formatted_address geo))
+       (reset! current-location geo)
+
+       (print "Fetching weather... ")
+       (if-let [weather (discovery/fetch-weather geo)]
+         (do
+           (println (:short_forecast weather) "-" (:temperature weather) "°" (:temperature_unit weather))
+
+           (print "Finding venues... ")
+           (let [venues (discovery/find-venues geo)]
+             (println (count venues) "found")
+
+             (if (seq venues)
+               (let [place    (rand-nth (take 20 venues))
+                     activity (discovery/match-activity weather place)
+                     time     (discovery/generate-event-time)]
+                 (format-suggestion {:place    place
+                                     :activity activity
+                                     :weather  weather
+                                     :time     time
+                                     :location geo})
+                 {:place    place
+                  :activity (dissoc activity :match-fn)
+                  :weather  weather
+                  :time     time
+                  :location geo})
+               (do
+                 (println "\nNo suitable places found nearby.")
+                 nil))))
+         (do
+           (println "FAILED (NWS API error)")
+           nil)))
+     (do
+       (println "FAILED")
+       (println "Could not geocode location:" location-str)
+       nil))))
