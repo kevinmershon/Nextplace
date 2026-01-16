@@ -336,9 +336,9 @@ make clj/format       # Format all Clojure and EDN files
 
 ## Next Steps
 
-### 🔥 Priority: Pluggable Event Source Scraper System
+### ✅ Pluggable Event Source Scraper System
 
-**Status:** In Progress
+**Status:** Complete
 
 **Goal:** Generic system for scraping events from arbitrary websites without per-site custom code in the main application.
 
@@ -350,23 +350,23 @@ make clj/format       # Format all Clojure and EDN files
 **Implementation Checklist:**
 
 1. **Rust MCP Server** (`nextplace-mcp/`)
-   - [ ] `list_pending_sources` tool - reads `pending_source:*` from RocksDB
-   - [ ] `mark_source_complete` tool - deletes from RocksDB
-   - [ ] Connect to existing RocksDB instance (same path as Clojure app)
+   - [x] `list_pending_sources` tool - reads `pending_source:*` from RocksDB
+   - [x] `mark_source_complete` tool - deletes from RocksDB
+   - [x] Connect to existing RocksDB instance (same path as Clojure app)
 
 2. **Clojure Console Command**
-   - [ ] `(queue-source url name areas)` in scraper console
-   - [ ] Writes `pending_source:<uuid>` to RocksDB with EDN payload
+   - [x] `(queue-source url name areas)` in scraper console
+   - [x] Writes `pending_source:<uuid>` to RocksDB with EDN payload
 
 3. **Clojure Quartzite Job**
-   - [ ] Scan `scrapers/*.js` directory
-   - [ ] Execute each: `node scrapers/<name>.js`
-   - [ ] Parse JSON stdout
-   - [ ] Save events to `scraped_event:<source>:<hash>`
+   - [x] Scan `scrapers/*.js` directory
+   - [x] Execute each: `node scrapers/<name>.js`
+   - [x] Parse JSON stdout
+   - [x] Save events to `scraped_event:<source>:<hash>`
 
 4. **Scrapers Directory**
-   - [ ] `scrapers/package.json` with Crawlee dependency
-   - [ ] `.gitkeep` placeholder
+   - [x] `scrapers/package.json` with Crawlee dependency
+   - [x] `.gitkeep` placeholder
 
 **Workflow:**
 ```

@@ -2,7 +2,7 @@
 # NOTE: This project uses a single Makefile at the root level only.
 #       Do not create Makefiles in subdirectories.
 
-.PHONY: clj/clean clj/build clj/format clj/check clj/server clj/mcp clj/repl clj/dev clj/test clj/test-unit clj/test-live
+.PHONY: clj/clean clj/build clj/format clj/check clj/server clj/mcp clj/repl clj/dev clj/test clj/test-unit clj/test-live mcp/build mcp/setup
 
 # =============================================================================
 # Clojure Web Backend
@@ -56,3 +56,17 @@ clj/test-live:
 	cd web && clojure -M:test -e "(require 'nextplace.events-test) \
 		(clojure.test/test-vars [#'nextplace.events-test/red-rock-coffee-open-mic-litmus \
 		                         #'nextplace.events-test/seven-stars-karaoke-litmus])"
+
+# =============================================================================
+# MCP Server (Rust)
+# =============================================================================
+
+# Build the MCP server
+mcp/build:
+	cd nextplace-mcp && cargo build --release
+
+# Generate .mcp.json for local development
+# This file is gitignored and contains machine-specific paths
+mcp/setup:
+	@echo '{"mcpServers":{"nextplace":{"command":"$(CURDIR)/nextplace-mcp/target/release/nextplace-mcp","env":{"NEXTPLACE_DB_PATH":"$(CURDIR)/web/data/nextplace.db"}}}}' > .mcp.json
+	@echo "Created .mcp.json - restart Claude Code to use the MCP server"
