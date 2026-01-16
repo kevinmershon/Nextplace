@@ -25,5 +25,6 @@
                     :auth       #ig/ref :nextplace/auth}
 
  :nextplace/server {:schema #ig/ref :nextplace/schema
+                    :db     #ig/ref :nextplace/db
                     :port   8888
                     :env    :dev}}

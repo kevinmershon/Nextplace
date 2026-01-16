@@ -1,40 +1,39 @@
 //! Nextplace MCP Server
 //!
-//! A thin MCP server that bridges Claude Code to the Nextplace RocksDB database
+//! A thin MCP server that bridges Claude Code to the Nextplace Clojure application
 //! for event source schema generation workflow.
 //!
 //! Tools:
 //! - list_pending_sources: List URLs queued for scraper script generation
-//! - mark_source_complete: Remove a source from the pending queue
+//! - mark_source_complete: Mark a source as complete (via HTTP to Clojure app)
 //!
-//! This server does NOT:
-//! - Fetch web pages
-//! - Execute scraper scripts
-//! - Generate schemas
-//!
-//! Those tasks are handled by Claude Code (analysis) and Clojure (execution).
+//! Communication:
+//! - Uses HTTP to communicate with the Clojure app
+//! - No direct database access (Clojure owns the database)
+//! - Gracefully handles Clojure app being unavailable
+//! - Can start before or after the Clojure app
 
-use anyhow::{Context, Result};
+use anyhow::Result;
 use rmcp::{
-    handler::server::router::tool::ToolRouter, model::*, schemars, schemars::JsonSchema, tool,
-    tool_handler, tool_router, ServerHandler, ServiceExt, transport::stdio,
+    handler::server::router::tool::ToolRouter, model::*, schemars::JsonSchema, tool, tool_handler,
+    tool_router, ServerHandler, ServiceExt, transport::stdio,
 };
-use rocksdb::{DB, IteratorMode, Options};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 use std::future::Future;
-use std::path::PathBuf;
 use std::sync::Arc;
-use tokio::sync::RwLock;
-use tracing::{info, warn};
-use tracing_subscriber::{self, EnvFilter};
+use tracing::info;
+use tracing_subscriber::EnvFilter;
 
-/// Pending source data structure (matches Clojure EDN format)
+const DEFAULT_API_BASE: &str = "http://localhost:8888";
+
+/// Pending source data structure (matches Clojure API response)
 #[derive(Debug, Clone, Serialize, Deserialize)]
 struct PendingSource {
     id: String,
     url: String,
     name: String,
+    #[serde(default)]
     geographic_scope: Vec<String>,
     queued_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -46,62 +45,32 @@ struct PendingSource {
 struct MarkSourceCompleteRequest {
     /// The ID of the pending source to mark as complete
     #[schemars(description = "The ID of the pending source to mark as complete")]
-    #[allow(dead_code)]
     id: String,
 }
 
-/// Get the RocksDB path from environment or default
-fn get_db_path() -> PathBuf {
-    if let Ok(path) = std::env::var("NEXTPLACE_DB_PATH") {
-        PathBuf::from(path)
-    } else {
-        // Default: relative to current directory, matching Clojure app structure
-        PathBuf::from("web/data/nextplace.db")
-    }
-}
-
-/// Parse EDN string to PendingSource
-/// Clojure stores data as EDN, so we need to convert to JSON-compatible format
-fn parse_edn_to_pending_source(edn_str: &str) -> Result<PendingSource> {
-    // Simple EDN to JSON conversion for our known structure
-    // EDN uses :keywords, JSON uses "strings"
-    let json_str = edn_str
-        .replace(":id", "\"id\"")
-        .replace(":url", "\"url\"")
-        .replace(":name", "\"name\"")
-        .replace(":geographic-scope", "\"geographic_scope\"")
-        .replace(":geographic_scope", "\"geographic_scope\"")
-        .replace(":queued-at", "\"queued_at\"")
-        .replace(":queued_at", "\"queued_at\"")
-        .replace(":notes", "\"notes\"");
-
-    serde_json::from_str(&json_str).context("Failed to parse EDN as JSON")
+/// Get the API base URL from environment or default
+fn get_api_base() -> String {
+    std::env::var("NEXTPLACE_API_URL").unwrap_or_else(|_| DEFAULT_API_BASE.to_string())
 }
 
 /// The MCP service handler
 #[derive(Debug, Clone)]
 struct NextplaceMcp {
-    db: Arc<RwLock<DB>>,
+    http_client: Arc<reqwest::Client>,
+    api_base: String,
     tool_router: ToolRouter<Self>,
 }
 
 impl NextplaceMcp {
-    fn new(db_path: PathBuf) -> Result<Self> {
-        let mut opts = Options::default();
-        opts.create_if_missing(true);
+    fn new() -> Self {
+        let api_base = get_api_base();
+        info!("Using Clojure API at: {}", api_base);
 
-        // Open in read-write mode (same DB as Clojure app)
-        // Note: RocksDB allows multiple readers but only one writer process
-        // The Clojure app should not be running when this MCP server writes
-        let db = DB::open(&opts, &db_path)
-            .context(format!("Failed to open RocksDB at {:?}", db_path))?;
-
-        info!("Opened RocksDB at {:?}", db_path);
-
-        Ok(Self {
-            db: Arc::new(RwLock::new(db)),
+        Self {
+            http_client: Arc::new(reqwest::Client::new()),
+            api_base,
             tool_router: Self::tool_router(),
-        })
+        }
     }
 }
 
@@ -110,54 +79,59 @@ impl NextplaceMcp {
     /// List all URLs queued for scraper script generation
     #[tool(description = "List all event sources that are queued for scraper script generation. These are URLs that need Crawlee scripts to be created by Claude.")]
     async fn list_pending_sources(&self) -> String {
-        let db = self.db.read().await;
+        let url = format!("{}/api/pending-sources", self.api_base);
 
-        let mut pending_sources = Vec::new();
-        let prefix = b"pending_source:";
-
-        // Scan all keys with pending_source: prefix
-        let iter = db.iterator(IteratorMode::From(prefix, rocksdb::Direction::Forward));
-
-        for item in iter {
-            match item {
-                Ok((key, value)) => {
-                    let key_str = String::from_utf8_lossy(&key);
-
-                    // Stop if we've passed the prefix
-                    if !key_str.starts_with("pending_source:") {
-                        break;
-                    }
-
-                    // Parse the EDN value
-                    let value_str = String::from_utf8_lossy(&value);
-                    match parse_edn_to_pending_source(&value_str) {
-                        Ok(source) => pending_sources.push(source),
-                        Err(e) => {
-                            warn!("Failed to parse pending source {}: {}", key_str, e);
+        match self.http_client.get(&url).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    match response.json::<Vec<PendingSource>>().await {
+                        Ok(sources) => {
+                            if sources.is_empty() {
+                                serde_json::to_string_pretty(&json!({
+                                    "message": "No pending sources. Use the Clojure console (queue-source ...) to add URLs for scraper generation.",
+                                    "count": 0,
+                                    "sources": []
+                                }))
+                                .unwrap_or_default()
+                            } else {
+                                serde_json::to_string_pretty(&json!({
+                                    "count": sources.len(),
+                                    "sources": sources,
+                                    "next_step": "For each source: 1) Use WebFetch to analyze the page, 2) Generate a Crawlee script, 3) Save to scrapers/ directory, 4) Call mark_source_complete"
+                                }))
+                                .unwrap_or_default()
+                            }
                         }
+                        Err(e) => serde_json::to_string_pretty(&json!({
+                            "error": format!("Failed to parse response: {}", e),
+                            "hint": "The Clojure API may have returned an unexpected format"
+                        }))
+                        .unwrap_or_default(),
                     }
+                } else {
+                    serde_json::to_string_pretty(&json!({
+                        "error": format!("API returned status {}", response.status()),
+                        "hint": "Check if the Clojure app is running correctly"
+                    }))
+                    .unwrap_or_default()
                 }
-                Err(e) => {
-                    warn!("Error reading from RocksDB: {}", e);
+            }
+            Err(e) => {
+                if e.is_connect() {
+                    serde_json::to_string_pretty(&json!({
+                        "error": "Cannot connect to Clojure app",
+                        "api_url": self.api_base,
+                        "hint": "Start the Clojure app with 'make web/run' or check NEXTPLACE_API_URL environment variable"
+                    }))
+                    .unwrap_or_default()
+                } else {
+                    serde_json::to_string_pretty(&json!({
+                        "error": format!("HTTP request failed: {}", e)
+                    }))
+                    .unwrap_or_default()
                 }
             }
         }
-
-        if pending_sources.is_empty() {
-            return serde_json::to_string_pretty(&json!({
-                "message": "No pending sources. Use the Clojure console (queue-source ...) to add URLs for scraper generation.",
-                "count": 0,
-                "sources": []
-            }))
-            .unwrap_or_default();
-        }
-
-        serde_json::to_string_pretty(&json!({
-            "count": pending_sources.len(),
-            "sources": pending_sources,
-            "next_step": "For each source: 1) Use WebFetch to analyze the page, 2) Generate a Crawlee script, 3) Save to scrapers/ directory, 4) Call mark_source_complete"
-        }))
-        .unwrap_or_default()
     }
 
     /// Mark a source as complete (remove from pending queue)
@@ -168,44 +142,44 @@ impl NextplaceMcp {
             MarkSourceCompleteRequest,
         >,
     ) -> String {
-        let db = self.db.write().await;
-        let id = req.id;
+        let url = format!("{}/api/pending-sources/{}/complete", self.api_base, req.id);
 
-        let key = format!("pending_source:{}", id);
-
-        // Check if it exists first
-        match db.get(key.as_bytes()) {
-            Ok(Some(value)) => {
-                // Parse to get the name for confirmation
-                let value_str = String::from_utf8_lossy(&value);
-                let source_name = parse_edn_to_pending_source(&value_str)
-                    .map(|s| s.name)
-                    .unwrap_or_else(|_| "unknown".to_string());
-
-                // Delete the key
-                if let Err(e) = db.delete(key.as_bytes()) {
-                    return serde_json::to_string_pretty(&json!({
-                        "error": format!("Failed to delete from RocksDB: {}", e)
+        match self.http_client.post(&url).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    serde_json::to_string_pretty(&json!({
+                        "message": "Source marked as complete and removed from pending queue",
+                        "id": req.id,
+                        "reminder": "Make sure the Crawlee script was saved to the scrapers/ directory"
                     }))
-                    .unwrap_or_default();
+                    .unwrap_or_default()
+                } else if response.status() == reqwest::StatusCode::NOT_FOUND {
+                    serde_json::to_string_pretty(&json!({
+                        "error": format!("No pending source found with ID: {}", req.id)
+                    }))
+                    .unwrap_or_default()
+                } else {
+                    serde_json::to_string_pretty(&json!({
+                        "error": format!("API returned status {}", response.status())
+                    }))
+                    .unwrap_or_default()
                 }
-
-                serde_json::to_string_pretty(&json!({
-                    "message": "Source marked as complete and removed from pending queue",
-                    "id": id,
-                    "name": source_name,
-                    "reminder": "Make sure the Crawlee script was saved to the scrapers/ directory"
-                }))
-                .unwrap_or_default()
             }
-            Ok(None) => serde_json::to_string_pretty(&json!({
-                "error": format!("No pending source found with ID: {}", id)
-            }))
-            .unwrap_or_default(),
-            Err(e) => serde_json::to_string_pretty(&json!({
-                "error": format!("Failed to read from RocksDB: {}", e)
-            }))
-            .unwrap_or_default(),
+            Err(e) => {
+                if e.is_connect() {
+                    serde_json::to_string_pretty(&json!({
+                        "error": "Cannot connect to Clojure app",
+                        "api_url": self.api_base,
+                        "hint": "Start the Clojure app with 'make web/run' or check NEXTPLACE_API_URL environment variable"
+                    }))
+                    .unwrap_or_default()
+                } else {
+                    serde_json::to_string_pretty(&json!({
+                        "error": format!("HTTP request failed: {}", e)
+                    }))
+                    .unwrap_or_default()
+                }
+            }
         }
     }
 }
@@ -237,7 +211,6 @@ impl ServerHandler for NextplaceMcp {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    // Initialize logging to stderr (stdout is for MCP protocol)
     tracing_subscriber::fmt()
         .with_env_filter(
             EnvFilter::try_from_default_env().unwrap_or_else(|_| EnvFilter::new("info")),
@@ -247,19 +220,11 @@ async fn main() -> Result<()> {
 
     info!("Starting Nextplace MCP server");
 
-    // Get database path
-    let db_path = get_db_path();
-    info!("Using RocksDB at: {:?}", db_path);
-
-    // Create the MCP service
-    let service = NextplaceMcp::new(db_path)?;
-
-    // Run the server over stdio
+    let service = NextplaceMcp::new();
     let server = service.serve(stdio()).await?;
 
     info!("MCP server running on stdio");
 
-    // Wait for shutdown
     server.waiting().await?;
 
     info!("MCP server shutting down");

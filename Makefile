@@ -67,6 +67,8 @@ mcp/build:
 
 # Generate .mcp.json for local development
 # This file is gitignored and contains machine-specific paths
+# MCP server communicates with Clojure app via HTTP (default: http://localhost:8888)
 mcp/setup:
-	@echo '{"mcpServers":{"nextplace":{"command":"$(CURDIR)/nextplace-mcp/target/release/nextplace-mcp","env":{"NEXTPLACE_DB_PATH":"$(CURDIR)/web/data/nextplace.db"}}}}' > .mcp.json
+	@echo '{"mcpServers":{"nextplace":{"command":"$(CURDIR)/nextplace-mcp/target/release/nextplace-mcp"}}}' > .mcp.json
 	@echo "Created .mcp.json - restart Claude Code to use the MCP server"
+	@echo "Note: Start the Clojure app (make clj/dev) for MCP to access pending sources"
