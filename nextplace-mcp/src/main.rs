@@ -15,10 +15,14 @@
 //! Those tasks are handled by Claude Code (analysis) and Clojure (execution).
 
 use anyhow::{Context, Result};
-use rmcp::{ServerHandler, ServiceExt, model::*, tool, tool_router, transport::stdio};
+use rmcp::{
+    handler::server::router::tool::ToolRouter, model::*, schemars, schemars::JsonSchema, tool,
+    tool_handler, tool_router, ServerHandler, ServiceExt, transport::stdio,
+};
 use rocksdb::{DB, IteratorMode, Options};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
+use std::future::Future;
 use std::path::PathBuf;
 use std::sync::Arc;
 use tokio::sync::RwLock;
@@ -35,6 +39,15 @@ struct PendingSource {
     queued_at: String,
     #[serde(skip_serializing_if = "Option::is_none")]
     notes: Option<String>,
+}
+
+/// Request to mark a source as complete
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+struct MarkSourceCompleteRequest {
+    /// The ID of the pending source to mark as complete
+    #[schemars(description = "The ID of the pending source to mark as complete")]
+    #[allow(dead_code)]
+    id: String,
 }
 
 /// Get the RocksDB path from environment or default
@@ -66,8 +79,10 @@ fn parse_edn_to_pending_source(edn_str: &str) -> Result<PendingSource> {
 }
 
 /// The MCP service handler
+#[derive(Debug, Clone)]
 struct NextplaceMcp {
     db: Arc<RwLock<DB>>,
+    tool_router: ToolRouter<Self>,
 }
 
 impl NextplaceMcp {
@@ -85,26 +100,16 @@ impl NextplaceMcp {
 
         Ok(Self {
             db: Arc::new(RwLock::new(db)),
+            tool_router: Self::tool_router(),
         })
     }
-}
-
-/// Response helpers
-fn success_response(content: impl Serialize) -> Result<CallToolResult, rmcp::Error> {
-    Ok(CallToolResult::success(vec![Content::text(
-        serde_json::to_string_pretty(&content).unwrap_or_else(|_| "{}".to_string()),
-    )]))
-}
-
-fn error_response(message: &str) -> Result<CallToolResult, rmcp::Error> {
-    Ok(CallToolResult::error(vec![Content::text(message.to_string())]))
 }
 
 #[tool_router]
 impl NextplaceMcp {
     /// List all URLs queued for scraper script generation
     #[tool(description = "List all event sources that are queued for scraper script generation. These are URLs that need Crawlee scripts to be created by Claude.")]
-    async fn list_pending_sources(&self) -> Result<CallToolResult, rmcp::Error> {
+    async fn list_pending_sources(&self) -> String {
         let db = self.db.read().await;
 
         let mut pending_sources = Vec::new();
@@ -139,27 +144,32 @@ impl NextplaceMcp {
         }
 
         if pending_sources.is_empty() {
-            return success_response(json!({
+            return serde_json::to_string_pretty(&json!({
                 "message": "No pending sources. Use the Clojure console (queue-source ...) to add URLs for scraper generation.",
                 "count": 0,
                 "sources": []
-            }));
+            }))
+            .unwrap_or_default();
         }
 
-        success_response(json!({
+        serde_json::to_string_pretty(&json!({
             "count": pending_sources.len(),
             "sources": pending_sources,
             "next_step": "For each source: 1) Use WebFetch to analyze the page, 2) Generate a Crawlee script, 3) Save to scrapers/ directory, 4) Call mark_source_complete"
         }))
+        .unwrap_or_default()
     }
 
     /// Mark a source as complete (remove from pending queue)
     #[tool(description = "Mark an event source as complete after its Crawlee script has been generated. This removes it from the pending queue.")]
     async fn mark_source_complete(
         &self,
-        #[tool(description = "The ID of the pending source to mark as complete")] id: String,
-    ) -> Result<CallToolResult, rmcp::Error> {
+        rmcp::handler::server::tool::Parameters(req): rmcp::handler::server::tool::Parameters<
+            MarkSourceCompleteRequest,
+        >,
+    ) -> String {
         let db = self.db.write().await;
+        let id = req.id;
 
         let key = format!("pending_source:{}", id);
 
@@ -174,34 +184,38 @@ impl NextplaceMcp {
 
                 // Delete the key
                 if let Err(e) = db.delete(key.as_bytes()) {
-                    return error_response(&format!("Failed to delete from RocksDB: {}", e));
+                    return serde_json::to_string_pretty(&json!({
+                        "error": format!("Failed to delete from RocksDB: {}", e)
+                    }))
+                    .unwrap_or_default();
                 }
 
-                success_response(json!({
+                serde_json::to_string_pretty(&json!({
                     "message": "Source marked as complete and removed from pending queue",
                     "id": id,
                     "name": source_name,
                     "reminder": "Make sure the Crawlee script was saved to the scrapers/ directory"
                 }))
+                .unwrap_or_default()
             }
-            Ok(None) => {
-                error_response(&format!("No pending source found with ID: {}", id))
-            }
-            Err(e) => {
-                error_response(&format!("Failed to read from RocksDB: {}", e))
-            }
+            Ok(None) => serde_json::to_string_pretty(&json!({
+                "error": format!("No pending source found with ID: {}", id)
+            }))
+            .unwrap_or_default(),
+            Err(e) => serde_json::to_string_pretty(&json!({
+                "error": format!("Failed to read from RocksDB: {}", e)
+            }))
+            .unwrap_or_default(),
         }
     }
 }
 
-#[rmcp::async_trait]
+#[tool_handler]
 impl ServerHandler for NextplaceMcp {
     fn get_info(&self) -> ServerInfo {
         ServerInfo {
             protocol_version: ProtocolVersion::V_2024_11_05,
-            capabilities: ServerCapabilities::builder()
-                .enable_tools()
-                .build(),
+            capabilities: ServerCapabilities::builder().enable_tools().build(),
             server_info: Implementation {
                 name: "nextplace-mcp".to_string(),
                 version: env!("CARGO_PKG_VERSION").to_string(),

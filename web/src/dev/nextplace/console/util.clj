@@ -3,7 +3,8 @@
 
 (def ^:private available-consoles
   {:rocksdb   'nextplace.console.rocksdb
-   :discovery 'nextplace.console.discovery})
+   :discovery 'nextplace.console.discovery
+   :scraper   'nextplace.console.scraper})
 
 (defn list-consoles
   []

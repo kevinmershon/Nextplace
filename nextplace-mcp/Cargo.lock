@@ -542,6 +542,7 @@ dependencies = [
  "edn-rs",
  "rmcp",
  "rocksdb",
+ "schemars",
  "serde",
  "serde_json",
  "thiserror",

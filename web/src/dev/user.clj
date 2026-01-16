@@ -12,6 +12,7 @@
   "Load all component namespaces and start the system"
   []
   (require 'nextplace.server)
+  (require 'nextplace.scraper-job)
   (ig-repl/go))
 
 (defn halt
@@ -70,4 +71,5 @@
 (println "\nNextplace REPL ready.")
 (println "Run (go) to start the server.")
 (println "Run (commands) to see available commands.")
-(println "Run (select :rocksdb) to enter the RocksDB console.\n")
+(println "Run (select :rocksdb) to enter the RocksDB console.")
+(println "Run (select :scraper) to enter the Scraper console.\n")

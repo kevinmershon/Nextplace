@@ -14,6 +14,10 @@
 
  :nextplace/discovery {:db #ig/ref :nextplace/db}
 
+ :nextplace/scraper-job {:db            #ig/ref :nextplace/db
+                         :cron-schedule "0 0 */6 * * ?"  ;; Every 6 hours
+                         :enabled       false}            ;; Disabled by default
+
  :nextplace/schema {:db         #ig/ref :nextplace/db
                     :redis      #ig/ref :nextplace/redis
                     :email      #ig/ref :nextplace/email
