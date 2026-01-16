@@ -44,9 +44,12 @@
   [script-path]
   (log/info "Running scraper:" script-path)
   (try
-    (let [process     (-> (ProcessBuilder. ["node" script-path])
-                          (.redirectErrorStream false)
-                          (.start))
+    (let [pb          (ProcessBuilder. ["node" script-path])
+          env         (.environment pb)
+          _           (.put env "NO_COLOR" "1")
+          _           (.put env "CRAWLEE_LOG_LEVEL" "OFF")
+          _           (.redirectErrorStream pb false)
+          process     (.start pb)
           stdout      (slurp (.getInputStream process))
           stderr      (slurp (.getErrorStream process))
           exit-code   (.waitFor process)]
@@ -62,11 +65,21 @@
        :output  nil
        :error   (str "Exception: " (.getMessage e))})))
 
+(defn- extract-json-array
+  "Extract JSON array from output that may contain log lines.
+   Looks for content starting with '[' and ending with ']'."
+  [output]
+  (when-let [start (str/index-of output "[")]
+    (when-let [end (str/last-index-of output "]")]
+      (when (< start end)
+        (subs output start (inc end))))))
+
 (defn- parse-events
   "Parse JSON output from a scraper script"
   [json-str]
   (try
-    (let [events (json/read-str json-str :key-fn keyword)]
+    (let [clean-json (or (extract-json-array json-str) json-str)
+          events     (json/read-str clean-json :key-fn keyword)]
       (if (sequential? events)
         events
         (do

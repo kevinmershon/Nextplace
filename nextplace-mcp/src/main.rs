@@ -48,6 +48,28 @@ struct MarkSourceCompleteRequest {
     id: String,
 }
 
+/// Request to queue a new source for scraper generation
+#[derive(Debug, Clone, Serialize, Deserialize, JsonSchema)]
+struct QueueSourceRequest {
+    /// The URL of the event source to scrape
+    #[schemars(description = "The URL of the event source to scrape (e.g., https://example.com/events)")]
+    url: String,
+
+    /// A human-readable name for this source
+    #[schemars(description = "A human-readable name for this source (e.g., 'San Jose Downtown Events')")]
+    name: String,
+
+    /// Geographic areas this source covers
+    #[schemars(description = "Geographic areas this source covers (e.g., ['San Jose, CA', 'Santa Clara, CA'])")]
+    #[serde(default)]
+    geographic_scope: Vec<String>,
+
+    /// Optional notes about the source or scraping hints
+    #[schemars(description = "Optional notes about the source or scraping hints for Claude")]
+    #[serde(skip_serializing_if = "Option::is_none")]
+    notes: Option<String>,
+}
+
 /// Get the API base URL from environment or default
 fn get_api_base() -> String {
     std::env::var("NEXTPLACE_API_URL").unwrap_or_else(|_| DEFAULT_API_BASE.to_string())
@@ -112,6 +134,77 @@ impl NextplaceMcp {
                     serde_json::to_string_pretty(&json!({
                         "error": format!("API returned status {}", response.status()),
                         "hint": "Check if the Clojure app is running correctly"
+                    }))
+                    .unwrap_or_default()
+                }
+            }
+            Err(e) => {
+                if e.is_connect() {
+                    serde_json::to_string_pretty(&json!({
+                        "error": "Cannot connect to Clojure app",
+                        "api_url": self.api_base,
+                        "hint": "Start the Clojure app with 'make web/run' or check NEXTPLACE_API_URL environment variable"
+                    }))
+                    .unwrap_or_default()
+                } else {
+                    serde_json::to_string_pretty(&json!({
+                        "error": format!("HTTP request failed: {}", e)
+                    }))
+                    .unwrap_or_default()
+                }
+            }
+        }
+    }
+
+    /// Queue a new source for scraper script generation
+    #[tool(description = "Queue a new event source URL for scraper script generation. Use this to add URLs that need Crawlee scripts created.")]
+    async fn queue_source(
+        &self,
+        rmcp::handler::server::tool::Parameters(req): rmcp::handler::server::tool::Parameters<
+            QueueSourceRequest,
+        >,
+    ) -> String {
+        let url = format!("{}/api/pending-sources", self.api_base);
+
+        let body = json!({
+            "url": req.url,
+            "name": req.name,
+            "geographic_scope": req.geographic_scope,
+            "notes": req.notes
+        });
+
+        match self.http_client.post(&url).json(&body).send().await {
+            Ok(response) => {
+                if response.status().is_success() {
+                    match response.json::<PendingSource>().await {
+                        Ok(source) => serde_json::to_string_pretty(&json!({
+                            "message": "Source queued for scraper generation",
+                            "source": source,
+                            "next_steps": [
+                                "1. Use WebFetch to analyze the page structure",
+                                "2. Generate a Crawlee (Node.js) script that extracts events",
+                                "3. Save the script to the scrapers/ directory",
+                                "4. Call mark_source_complete to remove from the queue"
+                            ]
+                        }))
+                        .unwrap_or_default(),
+                        Err(e) => serde_json::to_string_pretty(&json!({
+                            "message": "Source queued successfully",
+                            "warning": format!("Could not parse response: {}", e)
+                        }))
+                        .unwrap_or_default(),
+                    }
+                } else if response.status() == reqwest::StatusCode::BAD_REQUEST {
+                    match response.text().await {
+                        Ok(text) => text,
+                        Err(_) => serde_json::to_string_pretty(&json!({
+                            "error": "Bad request - check that url and name are provided"
+                        }))
+                        .unwrap_or_default(),
+                    }
+                } else {
+                    serde_json::to_string_pretty(&json!({
+                        "error": format!("API returned status {}", response.status())
                     }))
                     .unwrap_or_default()
                 }
@@ -202,6 +295,8 @@ impl ServerHandler for NextplaceMcp {
                  3. Generate a Crawlee (Node.js) script that extracts events\n\
                  4. Save the script to the scrapers/ directory\n\
                  5. Call mark_source_complete to remove from the queue\n\n\
+                 To add a new source:\n\
+                 - Call queue_source with the URL, name, and geographic scope\n\n\
                  The Clojure app will run all scripts in scrapers/ on a schedule."
                     .to_string(),
             ),

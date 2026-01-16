@@ -81,13 +81,43 @@
          :headers {"Content-Type" "application/json"}
          :body    (json/write-str {:error (str "No pending source found with ID: " id)})}))))
 
+(defn queue-source-handler
+  "POST /api/pending-sources - Queue a new source for scraper generation"
+  [db-instance]
+  (fn [request]
+    (try
+      (let [body   (slurp (:body request))
+            data   (json/read-str body :key-fn keyword)
+            id     (str (java.util.UUID/randomUUID))
+            source {:id               id
+                    :url              (:url data)
+                    :name             (:name data)
+                    :geographic_scope (or (:geographic_scope data) [])
+                    :queued_at        (str (java.time.Instant/now))
+                    :notes            (:notes data)}
+            key    (str "pending_source:" id)]
+        (if (and (:url data) (:name data))
+          (do
+            (db/put-value db-instance key source)
+            {:status  201
+             :headers {"Content-Type" "application/json"}
+             :body    (json/write-str source)})
+          {:status  400
+           :headers {"Content-Type" "application/json"}
+           :body    (json/write-str {:error "Missing required fields: url and name"})}))
+      (catch Exception e
+        {:status  400
+         :headers {"Content-Type" "application/json"}
+         :body    (json/write-str {:error (str "Invalid request: " (.getMessage e))})}))))
+
 (defn create-handler [schema db-instance]
   (-> (ring/ring-handler
        (ring/router
         [["/" {:get index-handler}]
          ["/graphql" {:post (graphql-handler schema)}]
          ;; MCP API endpoints
-         ["/api/pending-sources" {:get (pending-sources-handler db-instance)}]
+         ["/api/pending-sources" {:get  (pending-sources-handler db-instance)
+                                  :post (queue-source-handler db-instance)}]
          ["/api/pending-sources/:id/complete" {:post (mark-source-complete-handler db-instance)}]])
        (ring/routes
         (ring/create-resource-handler {:path "/"
