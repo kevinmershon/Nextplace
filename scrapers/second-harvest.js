@@ -120,13 +120,10 @@ const crawler = new PlaywrightCrawler({
   },
 });
 
-const requests = [
-  { url: CALENDAR_URL, userData: { jobType: 'General' } },
-  ...JOB_TYPES.map(({ type, filter }) => ({
-    url: `${CALENDAR_URL}?tab=list&job_type=${filter}&group_type=individual`,
-    userData: { jobType: type },
-  })),
-];
+const requests = JOB_TYPES.map(({ type, filter }) => ({
+  url: `${CALENDAR_URL}?tab=list&job_type=${filter}&group_type=individual`,
+  userData: { jobType: type },
+}));
 
 await crawler.run(requests);
 
@@ -161,30 +158,6 @@ if (uniqueEvents.length === 0) {
     location: 'Community sites throughout Silicon Valley',
     description: 'Help distribute food directly to families at community distribution sites.',
     url: `${CALENDAR_URL}?tab=list&job_type=Distribute%20Food&group_type=individual`,
-    organization: 'Second Harvest of Silicon Valley',
-    category: 'volunteering',
-    geographic_scope: 'San Jose, CA',
-  });
-
-  uniqueEvents.push({
-    title: 'Speakers Bureau Volunteer',
-    date: 'Ongoing - Quarterly commitment',
-    time: 'Flexible',
-    location: 'Various locations in Silicon Valley',
-    description: 'Become an ambassador for Second Harvest, speaking at community events about hunger issues.',
-    url: 'https://app.smartsheet.com/b/form/a923e19f0ece422ca5dd3e48863891b3',
-    organization: 'Second Harvest of Silicon Valley',
-    category: 'volunteering',
-    geographic_scope: 'San Jose, CA',
-  });
-
-  uniqueEvents.push({
-    title: 'Volunteer Team Leader',
-    date: 'Ongoing - Regular commitment',
-    time: 'Flexible',
-    location: 'Cypress Center, North San Jose, CA',
-    description: 'Lead and train new volunteers at the sorting facility. Training provided.',
-    url: 'https://shfb.tfaforms.net/19',
     organization: 'Second Harvest of Silicon Valley',
     category: 'volunteering',
     geographic_scope: 'San Jose, CA',
