@@ -437,13 +437,137 @@ Developers use the discovery console to populate opportunity data:
 4. **Walking groups** - Low-barrier social outdoor activities
 5. **Community events** - Open streets, festivals, city activities
 
+## Pluggable Event Source Scraper System
+
+### Overview
+A generic system for scraping events from arbitrary websites (volunteer calendars, event listings, etc.) without requiring per-site custom code in the main application.
+
+### Architecture
+```
+┌─────────────────────────────────────────────────────────┐
+│                    Claude Code                          │
+│  1. Calls MCP: list_pending_sources                     │
+│  2. Fetches page via WebFetch, analyzes structure       │
+│  3. Generates a Crawlee script (Node.js)                │
+│  4. Saves script to scrapers/ directory                 │
+│  5. Calls MCP: mark_source_complete                     │
+└──────────────────────┬──────────────────────────────────┘
+                       │ MCP Protocol (stdio)
+                       ▼
+┌─────────────────────────────────────────────────────────┐
+│              Rust MCP Server (nextplace-mcp)            │
+│  Very thin - just RocksDB read/write operations         │
+│                                                         │
+│  Tools:                                                 │
+│  - list_pending_sources → reads pending queue           │
+│  - mark_source_complete → removes from queue            │
+│                                                         │
+│  NO browser, NO scraping, NO script execution           │
+└─────────────────────────────────────────────────────────┘
+
+┌─────────────────────────────────────────────────────────┐
+│              Clojure Backend                            │
+│                                                         │
+│  Console command:                                       │
+│  - (queue-source url name geographic-scope)             │
+│    Writes to RocksDB pending queue                      │
+│                                                         │
+│  Quartzite scheduled job:                               │
+│  - Runs all scripts in scrapers/ directory              │
+│  - Executes: node scrapers/<name>.js                    │
+│  - Parses JSON output from each script                  │
+│  - Saves extracted events to RocksDB                    │
+│  - Zero knowledge of script contents or CSS selectors   │
+│                                                         │
+└─────────────────────────────────────────────────────────┘
+```
+
+### Responsibilities
+
+**Claude Code:**
+- Fetches and analyzes web pages (via WebFetch tool)
+- Generates Crawlee scripts with appropriate CSS selectors
+- Writes scripts to `scrapers/` directory
+- Uses MCP to see pending work and mark completion
+
+**Rust MCP Server (`nextplace-mcp`):**
+- Exposes `list_pending_sources` tool (reads from RocksDB)
+- Exposes `mark_source_complete` tool (removes from RocksDB)
+- Connects to same RocksDB instance as Clojure app
+- Absolutely no scraping or script execution logic
+
+**Clojure Backend:**
+- Console command to queue new sources for schema generation
+- Quartzite job runs all `scrapers/*.js` files on schedule
+- Parses standardized JSON output from scripts
+- Stores events in RocksDB for suggestion algorithm
+- Has zero knowledge of websites, CSS, or scraping logic
+
+### Scraper Script Contract
+
+Each generated Crawlee script must:
+1. Accept no arguments (URL is hardcoded in script)
+2. Output JSON array to stdout
+3. Each event object contains: `title`, `date`, `time`, `location`, `description`, `url`
+4. Exit with code 0 on success, non-zero on failure
+
+Example output:
+```json
+[
+  {
+    "title": "Food Sorting Volunteer Shift",
+    "date": "2026-01-20",
+    "time": "9:00 AM - 12:00 PM",
+    "location": "Curtner Warehouse, San Jose",
+    "description": "Help sort donated food items",
+    "url": "https://shfb.org/volunteer/shift/123"
+  }
+]
+```
+
+### Data Flow
+
+1. **Queue source:** `(queue-source "https://shfb.org/volunteer" "Second Harvest" ["San Jose, CA"])`
+2. **Claude generates script:** Analyzes page, writes `scrapers/second-harvest.js`
+3. **Mark complete:** Claude calls `mark_source_complete` via MCP
+4. **Polling job runs:** Quartzite executes all scripts, parses output
+5. **Events stored:** Extracted events saved to RocksDB
+6. **Suggestion algorithm:** Uses events for Flow 1 recommendations
+
+### RocksDB Keys
+
+- `pending_source:<uuid>` - Sources awaiting schema generation
+- `event_source:<uuid>` - Configured sources (metadata only)
+- `scraped_event:<source-id>:<event-hash>` - Individual extracted events
+
+### Directory Structure
+
+```
+Nextplace/
+├── nextplace-mcp/           # Rust MCP server
+│   ├── Cargo.toml
+│   └── src/
+│       └── main.rs          # MCP tools implementation
+├── scrapers/                # Generated Crawlee scripts
+│   ├── package.json         # Crawlee dependencies
+│   ├── second-harvest.js    # Example: Second Harvest scraper
+│   └── ...                  # More generated scripts
+└── web/                     # Clojure backend
+    └── src/main/nextplace/
+        ├── scraper_job.clj  # Quartzite job to run scripts
+        └── console/
+            └── scraper.clj  # Console commands for queuing
+```
+
+---
+
 ## Performance Considerations
 
 - RocksDB provides fast embedded storage
 - Redis (via Carmine) for caching layer and geospatial queries
 - Ring middleware for content-type handling
 - Reitit for efficient routing
-- Geocoding result caching reduces Google Maps API calls
+- Geocoding result caching reduces external API calls
 
 ## Authentication
 

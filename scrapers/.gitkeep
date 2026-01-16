@@ -1,0 +1,8 @@
+# This directory contains generated Crawlee scraper scripts.
+# Scripts are created by Claude Code when analyzing event source URLs.
+# The Clojure backend runs all *.js files here on a schedule.
+#
+# Each script must:
+# 1. Output JSON array to stdout
+# 2. Each event: {title, date, time, location, description, url}
+# 3. Exit 0 on success, non-zero on failure

@@ -7,7 +7,7 @@ This document tracks current implementation progress, technical decisions, and c
 ## Current Status
 
 **Phase:** MVP Foundation - Authentication and Infrastructure
-**Last Updated:** 2026-01-04
+**Last Updated:** 2026-01-15
 
 ---
 
@@ -335,6 +335,54 @@ make clj/format       # Format all Clojure and EDN files
 ---
 
 ## Next Steps
+
+### 🔥 Priority: Pluggable Event Source Scraper System
+
+**Status:** In Progress
+
+**Goal:** Generic system for scraping events from arbitrary websites without per-site custom code in the main application.
+
+**Architecture Summary:**
+- **Claude Code:** Analyzes pages, generates Crawlee scripts, saves to `scrapers/`
+- **Rust MCP Server:** Thin bridge - `list_pending_sources` and `mark_source_complete`
+- **Clojure Backend:** Queues sources, runs scripts blindly via Quartzite, stores events
+
+**Implementation Checklist:**
+
+1. **Rust MCP Server** (`nextplace-mcp/`)
+   - [ ] `list_pending_sources` tool - reads `pending_source:*` from RocksDB
+   - [ ] `mark_source_complete` tool - deletes from RocksDB
+   - [ ] Connect to existing RocksDB instance (same path as Clojure app)
+
+2. **Clojure Console Command**
+   - [ ] `(queue-source url name areas)` in scraper console
+   - [ ] Writes `pending_source:<uuid>` to RocksDB with EDN payload
+
+3. **Clojure Quartzite Job**
+   - [ ] Scan `scrapers/*.js` directory
+   - [ ] Execute each: `node scrapers/<name>.js`
+   - [ ] Parse JSON stdout
+   - [ ] Save events to `scraped_event:<source>:<hash>`
+
+4. **Scrapers Directory**
+   - [ ] `scrapers/package.json` with Crawlee dependency
+   - [ ] `.gitkeep` placeholder
+
+**Workflow:**
+```
+1. (queue-source "https://shfb.org/volunteer" "Second Harvest" ["San Jose, CA"])
+2. Claude: list_pending_sources → sees URL
+3. Claude: WebFetch → analyzes page structure
+4. Claude: Writes scrapers/second-harvest.js
+5. Claude: mark_source_complete → removes from queue
+6. Quartzite: node scrapers/*.js → events to RocksDB
+```
+
+See [ARCHITECTURE.md](ARCHITECTURE.md#pluggable-event-source-scraper-system) for full details.
+
+---
+
+### Remaining Steps
 
 1. **Location Indexing System**
    - Implement location discovery via Overpass API

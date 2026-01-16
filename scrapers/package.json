@@ -1,0 +1,17 @@
+{
+  "name": "nextplace-scrapers",
+  "version": "1.0.0",
+  "description": "Crawlee scraper scripts for Nextplace event sources",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "echo 'Run individual scrapers with: node <scraper-name>.js'"
+  },
+  "dependencies": {
+    "crawlee": "^3.11.0",
+    "playwright": "^1.48.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
