@@ -5,20 +5,28 @@
  * Geographic scope: San Jose, CA
  *
  * This scraper extracts events from Plura's Next.js embedded JSON data.
+ * Limited to events within the next 3 days.
  */
 
 import { PlaywrightCrawler } from 'crawlee';
 
 const BASE_URL = 'https://plra.io/events/city/San%20Jose_CA';
-const MAX_PAGES = 5;
+const DAYS_AHEAD = 3;
+
+const now = new Date();
+const cutoffDate = new Date(now.getTime() + DAYS_AHEAD * 24 * 60 * 60 * 1000);
+cutoffDate.setHours(23, 59, 59, 999);
 
 const events = [];
+let stopFetching = false;
 
 const crawler = new PlaywrightCrawler({
   headless: true,
   requestHandlerTimeoutSecs: 30,
 
   async requestHandler({ page, request, log }) {
+    if (stopFetching) return;
+
     log.info(`Processing ${request.url}`);
 
     await page.waitForLoadState('networkidle');
@@ -39,6 +47,14 @@ const crawler = new PlaywrightCrawler({
       const pageEvents = pageData.props.pageProps.events;
 
       for (const evt of pageEvents) {
+        const eventDate = new Date(evt.startsAt);
+
+        if (eventDate > cutoffDate) {
+          log.info(`Event "${evt.name}" on ${evt.startsAt} is beyond ${DAYS_AHEAD}-day window, stopping.`);
+          stopFetching = true;
+          break;
+        }
+
         events.push({
           title: evt.name || 'Untitled Event',
           date: formatDate(evt.startsAt),
@@ -56,7 +72,7 @@ const crawler = new PlaywrightCrawler({
       }
 
       const currentPage = request.userData.page || 1;
-      if (pageData.props.pageProps.nextPage && currentPage < MAX_PAGES) {
+      if (!stopFetching && pageData.props.pageProps.nextPage) {
         const nextPageUrl = `${BASE_URL}?page=${currentPage + 1}`;
         await crawler.addRequests([{
           url: nextPageUrl,

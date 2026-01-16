@@ -6,12 +6,18 @@
  *
  * This scraper uses Playwright to render the JavaScript-heavy volunteer
  * calendar and extract available volunteer shifts.
+ * Limited to events within the next 3 days.
  */
 
 import { PlaywrightCrawler } from 'crawlee';
 
 const BASE_URL = 'https://www.shfb.org';
 const CALENDAR_URL = `${BASE_URL}/give-help/volunteer/volcalendar-general/`;
+const DAYS_AHEAD = 3;
+
+const now = new Date();
+const cutoffDate = new Date(now.getTime() + DAYS_AHEAD * 24 * 60 * 60 * 1000);
+cutoffDate.setHours(23, 59, 59, 999);
 
 const JOB_TYPES = [
   { type: 'Sort Food', filter: 'Sort%20Food' },
@@ -19,6 +25,18 @@ const JOB_TYPES = [
 ];
 
 const events = [];
+
+function parseDateString(dateStr) {
+  const parsed = new Date(dateStr);
+  if (!isNaN(parsed.getTime())) return parsed;
+  return null;
+}
+
+function isWithinWindow(dateStr) {
+  const eventDate = parseDateString(dateStr);
+  if (!eventDate) return true;
+  return eventDate <= cutoffDate;
+}
 
 const crawler = new PlaywrightCrawler({
   headless: true,
@@ -40,11 +58,19 @@ const crawler = new PlaywrightCrawler({
     const shiftPattern = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\s+(\d{1,2}:\d{2}\s*(?:am|pm)\s*-\s*\d{1,2}:\d{2}\s*(?:am|pm))\s+(Sort Food|Distribute Food|Food Loader|Food Distributor[^\n]*)\s+([^\n]+)/gi;
 
     let match;
+    let foundBeyondCutoff = false;
+
     while ((match = shiftPattern.exec(pageText)) !== null) {
       const [, dayOfWeek, month, time, shiftType, location] = match;
       const fullDate = match[0].match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}/i);
 
       if (fullDate) {
+        if (!isWithinWindow(fullDate[0])) {
+          log.info(`Shift on ${fullDate[0]} is beyond ${DAYS_AHEAD}-day window, stopping.`);
+          foundBeyondCutoff = true;
+          break;
+        }
+
         events.push({
           title: `${shiftType.trim()} Volunteer Shift`,
           date: fullDate[0],
@@ -59,8 +85,9 @@ const crawler = new PlaywrightCrawler({
       }
     }
 
+    if (foundBeyondCutoff) return;
+
     const simplePattern = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}/gi;
-    const dateMatches = pageText.match(simplePattern) || [];
 
     const lines = pageText.split('\n').filter(l => l.trim());
 
@@ -73,6 +100,11 @@ const crawler = new PlaywrightCrawler({
         const dateMatch = line.match(simplePattern);
         if (dateMatch) {
           const date = dateMatch[0];
+
+          if (!isWithinWindow(date)) {
+            log.info(`Shift on ${date} is beyond ${DAYS_AHEAD}-day window, stopping.`);
+            break;
+          }
 
           let time = 'See website';
           let location = 'Second Harvest Food Bank';

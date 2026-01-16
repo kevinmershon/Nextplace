@@ -5,23 +5,39 @@
  * Geographic scope: San Jose, CA
  *
  * This scraper uses the Tribe Events REST API to fetch events.
+ * Limited to events within the next 3 days.
  */
 
 import { CheerioCrawler } from 'crawlee';
 
 const API_URL = 'https://sjdowntown.com/wp-json/tribe/events/v1/events';
-const PAGES_TO_FETCH = 3;
+const DAYS_AHEAD = 3;
+
+const now = new Date();
+const cutoffDate = new Date(now.getTime() + DAYS_AHEAD * 24 * 60 * 60 * 1000);
+cutoffDate.setHours(23, 59, 59, 999);
 
 const events = [];
+let stopFetching = false;
 
 const crawler = new CheerioCrawler({
   async requestHandler({ request, json, log }) {
+    if (stopFetching) return;
+
     log.info(`Processing ${request.url}`);
 
     const data = json;
 
     if (data && data.events && Array.isArray(data.events)) {
       for (const evt of data.events) {
+        const eventDate = new Date(evt.start_date);
+
+        if (eventDate > cutoffDate) {
+          log.info(`Event "${evt.title}" on ${evt.start_date} is beyond ${DAYS_AHEAD}-day window, stopping.`);
+          stopFetching = true;
+          break;
+        }
+
         const venue = evt.venue || {};
 
         events.push({
@@ -39,7 +55,7 @@ const crawler = new CheerioCrawler({
         });
       }
 
-      if (data.next_rest_url && request.userData.page < PAGES_TO_FETCH) {
+      if (!stopFetching && data.next_rest_url) {
         await crawler.addRequests([{
           url: data.next_rest_url,
           userData: { page: request.userData.page + 1 },
