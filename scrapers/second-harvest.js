@@ -8,7 +8,7 @@
  * calendar and extract available volunteer shifts.
  */
 
-import { PlaywrightCrawler, Dataset } from 'crawlee';
+import { PlaywrightCrawler } from 'crawlee';
 
 const BASE_URL = 'https://www.shfb.org';
 const CALENDAR_URL = `${BASE_URL}/give-help/volunteer/volcalendar-general/`;
@@ -28,93 +28,87 @@ const crawler = new PlaywrightCrawler({
     log.info(`Processing ${request.url}`);
 
     await page.waitForLoadState('networkidle');
-    await page.waitForTimeout(3000);
+    await page.waitForTimeout(5000);
 
     const jobType = request.userData.jobType || 'General';
 
-    const shiftElements = await page.$$('[class*="shift"], [class*="event"], [class*="calendar-item"], [class*="volunteer"], .fc-event, .calendar-event, tr[data-shift], .shift-row');
+    const pageText = await page.evaluate(() => {
+      const main = document.querySelector('main') || document.body;
+      return main.innerText;
+    });
 
-    if (shiftElements.length === 0) {
-      const tableRows = await page.$$('table tbody tr');
-      for (const row of tableRows) {
-        try {
-          const cells = await row.$$('td');
-          if (cells.length >= 3) {
-            const dateText = await cells[0]?.innerText().catch(() => '');
-            const timeText = await cells[1]?.innerText().catch(() => '');
-            const locationText = await cells[2]?.innerText().catch(() => '');
+    const shiftPattern = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}\s+(\d{1,2}:\d{2}\s*(?:am|pm)\s*-\s*\d{1,2}:\d{2}\s*(?:am|pm))\s+(Sort Food|Distribute Food|Food Loader|Food Distributor[^\n]*)\s+([^\n]+)/gi;
 
-            if (dateText && timeText) {
-              events.push({
-                title: `${jobType} Volunteer Shift`,
-                date: dateText.trim(),
-                time: timeText.trim(),
-                location: locationText.trim() || 'Second Harvest Food Bank',
-                description: `Volunteer opportunity at Second Harvest of Silicon Valley`,
-                url: request.url,
-                organization: 'Second Harvest of Silicon Valley',
-                category: 'volunteering',
-                geographic_scope: 'San Jose, CA',
-              });
+    let match;
+    while ((match = shiftPattern.exec(pageText)) !== null) {
+      const [, dayOfWeek, month, time, shiftType, location] = match;
+      const fullDate = match[0].match(/(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}/i);
+
+      if (fullDate) {
+        events.push({
+          title: `${shiftType.trim()} Volunteer Shift`,
+          date: fullDate[0],
+          time: time.trim(),
+          location: location.trim().split('\n')[0],
+          description: `Volunteer opportunity at Second Harvest of Silicon Valley. Help ${shiftType.toLowerCase().includes('sort') ? 'sort and pack food donations' : 'distribute food to families in need'}.`,
+          url: request.url,
+          organization: 'Second Harvest of Silicon Valley',
+          category: 'volunteering',
+          geographic_scope: 'San Jose, CA',
+        });
+      }
+    }
+
+    const simplePattern = /(Monday|Tuesday|Wednesday|Thursday|Friday|Saturday|Sunday),\s+(January|February|March|April|May|June|July|August|September|October|November|December)\s+\d{1,2},\s+\d{4}/gi;
+    const dateMatches = pageText.match(simplePattern) || [];
+
+    const lines = pageText.split('\n').filter(l => l.trim());
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      if (simplePattern.test(line)) {
+        simplePattern.lastIndex = 0;
+
+        const dateMatch = line.match(simplePattern);
+        if (dateMatch) {
+          const date = dateMatch[0];
+
+          let time = 'See website';
+          let location = 'Second Harvest Food Bank';
+          let shiftType = jobType;
+
+          for (let j = i + 1; j < Math.min(i + 6, lines.length); j++) {
+            const nextLine = lines[j].trim();
+
+            if (/^\d{1,2}:\d{2}\s*(?:am|pm)\s*-\s*\d{1,2}:\d{2}\s*(?:am|pm)$/i.test(nextLine)) {
+              time = nextLine;
+            }
+
+            if (/^(Sort Food|Distribute Food|Food Loader|Food Distributor)/i.test(nextLine)) {
+              shiftType = nextLine.split('\n')[0];
+            }
+
+            if (/Center|Church|College|Manor|Community|YMCA|Parish|Apartments/i.test(nextLine) && !nextLine.includes('volunteers')) {
+              location = nextLine.split('\n')[0];
             }
           }
-        } catch (e) {
-          log.debug(`Error parsing table row: ${e.message}`);
+
+          const existing = events.find(e => e.date === date && e.time === time && e.location === location);
+          if (!existing && time !== 'See website') {
+            events.push({
+              title: `${shiftType} Volunteer Shift`,
+              date: date,
+              time: time,
+              location: location,
+              description: `Volunteer opportunity at Second Harvest of Silicon Valley.`,
+              url: request.url,
+              organization: 'Second Harvest of Silicon Valley',
+              category: 'volunteering',
+              geographic_scope: 'San Jose, CA',
+            });
+          }
         }
-      }
-    }
-
-    for (const el of shiftElements) {
-      try {
-        const title = await el.$eval('[class*="title"], .title, h3, h4, .event-title', (e) => e.innerText).catch(() => '');
-        const date = await el.$eval('[class*="date"], .date, time', (e) => e.innerText || e.getAttribute('datetime')).catch(() => '');
-        const time = await el.$eval('[class*="time"], .time', (e) => e.innerText).catch(() => '');
-        const location = await el.$eval('[class*="location"], .location, .venue', (e) => e.innerText).catch(() => '');
-        const link = await el.$eval('a', (e) => e.href).catch(() => '');
-
-        if (title || date) {
-          events.push({
-            title: title || `${jobType} Volunteer Shift`,
-            date: date || 'See website',
-            time: time || 'Various times available',
-            location: location || 'Second Harvest Food Bank',
-            description: `Volunteer opportunity at Second Harvest of Silicon Valley`,
-            url: link || request.url,
-            organization: 'Second Harvest of Silicon Valley',
-            category: 'volunteering',
-            geographic_scope: 'San Jose, CA',
-          });
-        }
-      } catch (e) {
-        log.debug(`Error extracting shift: ${e.message}`);
-      }
-    }
-
-    const pageContent = await page.content();
-
-    const jsonMatch = pageContent.match(/window\.__DATA__\s*=\s*(\{[\s\S]*?\});/) ||
-                      pageContent.match(/var\s+events\s*=\s*(\[[\s\S]*?\]);/) ||
-                      pageContent.match(/"events"\s*:\s*(\[[\s\S]*?\])/);
-
-    if (jsonMatch) {
-      try {
-        const data = JSON.parse(jsonMatch[1]);
-        const eventArray = Array.isArray(data) ? data : (data.events || []);
-        for (const evt of eventArray) {
-          events.push({
-            title: evt.title || evt.name || `${jobType} Volunteer Shift`,
-            date: evt.date || evt.start || evt.startDate || 'See website',
-            time: evt.time || evt.startTime || 'Various times available',
-            location: evt.location || evt.venue || 'Second Harvest Food Bank',
-            description: evt.description || `Volunteer opportunity at Second Harvest of Silicon Valley`,
-            url: evt.url || evt.link || request.url,
-            organization: 'Second Harvest of Silicon Valley',
-            category: 'volunteering',
-            geographic_scope: 'San Jose, CA',
-          });
-        }
-      } catch (e) {
-        log.debug(`Could not parse embedded JSON: ${e.message}`);
       }
     }
   },
@@ -131,7 +125,7 @@ const uniqueEvents = [];
 const seen = new Set();
 
 for (const evt of events) {
-  const key = `${evt.title}|${evt.date}|${evt.time}|${evt.location}`;
+  const key = `${evt.date}|${evt.time}|${evt.location}`;
   if (!seen.has(key)) {
     seen.add(key);
     uniqueEvents.push(evt);

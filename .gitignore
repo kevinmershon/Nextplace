@@ -45,3 +45,4 @@ data/
 # Node modules (scrapers)
 node_modules/
 package-lock.json
+scrapers/storage/
